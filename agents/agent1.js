@@ -1,13 +1,10 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// O nome do modelo foi atualizado para uma versão estável e robusta.
 const MODELO_GEMINI = "gemini-2.5-pro";
 
-// Configuração do Google Gemini
-// Assumimos que a variável de ambiente GEMINI_API_KEY foi carregada no arquivo principal.
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Categorias de despesas (mantidas aqui por serem parte integral da lógica do prompt)
 const CATEGORIAS_DESPESAS = [
     'INSUMOS AGRÍCOLAS',
     'MANUTENÇÃO E OPERAÇÃO',
@@ -31,7 +28,7 @@ async function processPDFWithGemini(pdfBuffer) {
 
         const model = genAI.getGenerativeModel({ model: MODELO_GEMINI });
 
-        // O prompt inteiro com as instruções detalhadas
+        // O prompt
         const prompt = `Você é um especialista em análise de notas fiscais brasileiras (NFe). Analise este documento PDF de uma nota fiscal e extraia EXATAMENTE os seguintes dados em formato JSON válido.
 
 INSTRUÇÕES CRÍTICAS:
@@ -82,11 +79,9 @@ EXEMPLOS PARA EVITAR CONFUSÃO:
 - Se vir CPF "709.046.011-88" na seção destinatário, então faturado.cpf = "70904601188"
 
 RESPOSTA: Retorne APENAS o JSON válido, sem comentários, explicações ou formatação markdown.`;
-
-        // Converte o buffer do PDF para base64
+        
         const pdfBase64 = pdfBuffer.toString('base64');
 
-        // Cria o objeto de arquivo para o Gemini (é aqui que o PDF é enviado)
         const filePart = {
             inlineData: {
                 data: pdfBase64,
@@ -98,7 +93,6 @@ RESPOSTA: Retorne APENAS o JSON válido, sem comentários, explicações ou form
         const response = await result.response;
         let text = response.text().replace(/```json|```/g, '').trim();
 
-        // Extrai apenas o JSON da resposta (Garante que só o JSON seja parseado)
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             text = jsonMatch[0];
@@ -114,7 +108,6 @@ RESPOSTA: Retorne APENAS o JSON válido, sem comentários, explicações ou form
     }
 }
 
-// Função auxiliar para exemplos de categorias (mantida por ser útil ao agente ou rotas de informação)
 function getCategoryExamples(category) {
     const examples = {
         'INSUMOS AGRÍCOLAS': ['Sementes', 'Fertilizantes', 'Defensivos Agrícolas', 'Corretivos'],
@@ -131,7 +124,6 @@ function getCategoryExamples(category) {
     return examples[category] || [];
 }
 
-// Exporta as funções e constantes necessárias para o server.js
 module.exports = {
     processPDFWithGemini,
     MODELO_GEMINI,

@@ -1,0 +1,15 @@
+services:
+  database:
+    image: mydb/postgresql:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    volumes:
+      #- mydb:/var/lib/postgresql/data
+      - polls_pg_data:/mydb/postgresql
+
+volumes:
+  polls_pg_data:
