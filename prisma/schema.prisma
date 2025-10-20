@@ -28,6 +28,7 @@ model Pessoas {
   movimentosComoFornecedorCliente MovimentoContas[] @relation("FornecedorCliente")
   movimentosComoFaturado          MovimentoContas[] @relation("Faturado")
 
+  @@unique([documento])
   @@map("pessoas")
 }
 

@@ -35,7 +35,7 @@ async function findOrCreatePessoa(documento, razaoSocial, tipo, fantasia = null)
         };
     }
 
-    let pessoa = await prisma.pessoas.findUnique({
+    let pessoa = await prisma.pessoas.findFirst({
         where: { documento: docLimpo }
     });
 

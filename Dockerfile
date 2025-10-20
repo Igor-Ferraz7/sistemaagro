@@ -1,8 +1,21 @@
-FROM postgres:latest
+FROM node:18
 
-# Você pode adicionar customizações aqui se quiser
-# Por exemplo, copiar scripts de inicialização:
-# COPY init.sql /docker-entrypoint-initdb.d/
+WORKDIR /app
 
-# Ou instalar extensões:
-# RUN apt-get update && apt-get install -y postgresql-contrib
+# Copiar arquivos de dependências
+COPY package*.json ./
+
+# Instalar dependências
+RUN npm install
+
+# Copiar o resto dos arquivos da aplicação
+COPY . .
+
+# Gerar o cliente Prisma
+RUN npx prisma generate
+
+# Expor a porta que a aplicação usa
+EXPOSE 3000
+
+# Comando para iniciar a aplicação
+CMD ["node", "server.js"]

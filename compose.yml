@@ -1,6 +1,6 @@
 services:
   database:
-    image: mydb/postgresql:latest
+    image: postgres:latest
     ports:
       - "5432:5432"
     environment:
@@ -8,8 +8,26 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mydb
     volumes:
-      #- mydb:/var/lib/postgresql/data
-      - polls_pg_data:/mydb/postgresql
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - app-network
+      
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+    environment:
+      DATABASE_URL: postgresql://postgres:password@database:5432/mydb?schema=public
+    restart: always
+    networks:
+      - app-network
 
 volumes:
-  polls_pg_data:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
