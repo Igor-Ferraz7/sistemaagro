@@ -22,14 +22,39 @@ const CATEGORIAS_DESPESAS = [
  * @param {Buffer} pdfBuffer - O buffer de dados do arquivo PDF.
  * @returns {Promise<Object>} Os dados extraídos no formato JSON.
  */
+/**
+ * Função auxiliar para aguardar um tempo específico
+ * @param {number} ms - Tempo em milissegundos para aguardar
+ * @returns {Promise<void>}
+ */
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Função principal para processar um buffer de PDF diretamente com o Gemini.
+ * Implementa retry com backoff exponencial para lidar com erros de sobrecarga.
+ * @param {Buffer} pdfBuffer - O buffer de dados do arquivo PDF.
+ * @returns {Promise<Object>} Os dados extraídos no formato JSON.
+ */
 async function processPDFWithGemini(pdfBuffer) {
-    try {
-        console.log(`🤖 Processando PDF diretamente com Gemini (${MODELO_GEMINI})...`);
+    const MAX_RETRIES = 3;
+    const INITIAL_BACKOFF_MS = 1000; // 1 segundo
+    let retryCount = 0;
+    let lastError = null;
 
-        const model = genAI.getGenerativeModel({ model: MODELO_GEMINI });
+    while (retryCount <= MAX_RETRIES) {
+        try {
+            if (retryCount > 0) {
+                const backoffTime = INITIAL_BACKOFF_MS * Math.pow(2, retryCount - 1);
+                console.log(`🔄 Tentativa ${retryCount}/${MAX_RETRIES} após ${backoffTime}ms...`);
+                await sleep(backoffTime);
+            }
+            
+            console.log(`🤖 Processando PDF diretamente com Gemini (${MODELO_GEMINI})...`);
 
-        // O prompt
-        const prompt = `Você é um especialista em análise de notas fiscais brasileiras (NFe). Analise este documento PDF de uma nota fiscal e extraia EXATAMENTE os seguintes dados em formato JSON válido.
+            const model = genAI.getGenerativeModel({ model: MODELO_GEMINI });
+
+            // O prompt
+            const prompt = `Você é um especialista em análise de notas fiscais brasileiras (NFe). Analise este documento PDF de uma nota fiscal e extraia EXATAMENTE os seguintes dados em formato JSON válido.
 
 INSTRUÇÕES CRÍTICAS:
 - Use 'null' se a informação não for encontrada
@@ -79,33 +104,52 @@ EXEMPLOS PARA EVITAR CONFUSÃO:
 - Se vir CPF "709.046.011-88" na seção destinatário, então faturado.cpf = "70904601188"
 
 RESPOSTA: Retorne APENAS o JSON válido, sem comentários, explicações ou formatação markdown.`;
-        
-        const pdfBase64 = pdfBuffer.toString('base64');
+            
+            const pdfBase64 = pdfBuffer.toString('base64');
 
-        const filePart = {
-            inlineData: {
-                data: pdfBase64,
-                mimeType: 'application/pdf'
+            const filePart = {
+                inlineData: {
+                    data: pdfBase64,
+                    mimeType: 'application/pdf'
+                }
+            };
+
+            const result = await model.generateContent([prompt, filePart]);
+            const response = await result.response;
+            let text = response.text().replace(/```json|```/g, '').trim();
+
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                text = jsonMatch[0];
             }
-        };
 
-        const result = await model.generateContent([prompt, filePart]);
-        const response = await result.response;
-        let text = response.text().replace(/```json|```/g, '').trim();
+            const extractedData = JSON.parse(text);
+            console.log('✅ Dados processados com sucesso pelo Gemini');
 
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            text = jsonMatch[0];
+            return extractedData;
+        } catch (error) {
+            lastError = error;
+            retryCount++;
+            
+            // Verificar se o erro é de sobrecarga do serviço (503)
+            const isServiceOverloaded = error.message && (
+                error.message.includes('503 Service Unavailable') || 
+                error.message.includes('The model is overloaded')
+            );
+            
+            if (isServiceOverloaded && retryCount <= MAX_RETRIES) {
+                console.log(`⚠️ Gemini API sobrecarregada. Tentando novamente (${retryCount}/${MAX_RETRIES})...`);
+                // Continua para a próxima iteração e tenta novamente após o backoff
+            } else {
+                // Se não for erro de sobrecarga ou já excedeu as tentativas, interrompe
+                console.error('❌ Erro no processamento Gemini:', error);
+                break;
+            }
         }
-
-        const extractedData = JSON.parse(text);
-        console.log('✅ Dados processados com sucesso pelo Gemini');
-
-        return extractedData;
-    } catch (error) {
-        console.error('❌ Erro no processamento Gemini:', error);
-        throw new Error(`Falha no processamento IA: ${error.message}`);
     }
+    
+    // Se chegou aqui, todas as tentativas falharam
+    throw new Error(`Falha no processamento IA após ${retryCount} tentativas: ${lastError.message}`);
 }
 
 function getCategoryExamples(category) {

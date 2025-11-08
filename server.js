@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 require('dotenv').config();
 
+
 // Módulos do Agente (Gemini)
 const { 
     processPDFWithGemini, 
@@ -76,7 +77,31 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
         console.log(`- Arquivo: ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`);
 
         // 1. EXTRAÇÃO DE DADOS (GEMINI API)
-        extractedData = await processPDFWithGemini(req.file.buffer);
+        try {
+            extractedData = await processPDFWithGemini(req.file.buffer);
+        } catch (aiError) {
+            console.warn('⚠️ Falha na extração com IA, usando dados de fallback:', aiError.message);
+            
+            // Dados de fallback quando o Gemini está indisponível
+            extractedData = {
+                fornecedor: {
+                    razao_social: "DADOS TEMPORÁRIOS - GEMINI INDISPONÍVEL",
+                    fantasia: "FALLBACK", 
+                    cnpj: req.body.cnpj_fornecedor || "00000000000000"
+                },
+                faturado: {
+                    nome_completo: req.body.nome_faturado || "USUÁRIO TEMPORÁRIO",
+                    cpf: req.body.cpf_faturado || "00000000000"
+                },
+                numero_nota_fiscal: req.body.numero_nf || "TEMPORÁRIO",
+                data_emissao: new Date().toISOString().split('T')[0],
+                descricao_produtos: "Dados temporários devido à indisponibilidade do serviço Gemini",
+                quantidade_parcelas: 1,
+                data_vencimento: new Date().toISOString().split('T')[0], 
+                valor_total: req.body.valor_total || 0,
+                classificacao_despesa: req.body.classificacao || "ADMINISTRATIVAS"
+            };
+        }
 
         // 2. ANÁLISE E PERSISTÊNCIA NO BANCO DE DADOS
         
@@ -132,11 +157,16 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
         const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`🎉 Processamento e Lançamento concluído em ${totalTime}s`);
 
+        // Verificar se estamos usando dados de fallback
+        const isFallback = extractedData.fornecedor.razao_social === "DADOS TEMPORÁRIOS - GEMINI INDISPONÍVEL";
+
         res.json({
             success: true,
             method: 'direct_pdf_processing_with_db_launch',
             data: extractedData,
-            dbAnalysis: dbAnalysis, 
+            dbAnalysis: dbAnalysis,
+            fallback: isFallback,
+            fallbackMessage: isFallback ? "O serviço Gemini está temporariamente indisponível. Os dados exibidos são temporários. Por favor, tente novamente mais tarde." : null,
             metadata: {
                 filename: req.file.originalname,
                 fileSize: req.file.size,
@@ -150,6 +180,33 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message || 'Erro interno do servidor durante a extração/lançamento.'
+        });
+    }
+});
+
+// Importar o agente RAG
+const { consultarRAG } = require('./agents/agent_rag');
+
+// Rota para consultas RAG
+app.post('/consultar', express.json(), async (req, res) => {
+    try {
+        const { pergunta } = req.body;
+        
+        if (!pergunta) {
+            return res.status(400).json({
+                sucesso: false,
+                erro: 'Campo "pergunta" é obrigatório'
+            });
+        }
+        
+        const resultado = await consultarRAG(pergunta);
+        res.json(resultado);
+        
+    } catch (error) {
+        console.error('❌ Erro na rota /consultar:', error);
+        res.status(500).json({
+            sucesso: false,
+            erro: error.message
         });
     }
 });

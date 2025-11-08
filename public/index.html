@@ -27,6 +27,7 @@
         .header {
             text-align: center;
             margin-bottom: 50px;
+            position: relative;
         }
 
         .title {
@@ -40,6 +41,29 @@
             font-size: 1rem;
             color: #718096;
             font-weight: 400;
+        }
+
+        .consultas-button {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+        }
+
+        .consultas-button:hover {
+            background: #2c5282;
         }
 
         .upload-area {
@@ -325,6 +349,11 @@
             .db-analysis-grid {
                 grid-template-columns: 1fr;
             }
+
+            .consultas-button {
+                position: static;
+                margin-top: 15px;
+            }
         }
     </style>
 </head>
@@ -333,6 +362,9 @@
         <div class="header">
             <h1 class="title">Extração e Lançamento de NF</h1>
             <p class="subtitle">Use a IA para extrair dados de notas fiscais em PDF, verificar no BD e lançar o Contas a Pagar.</p>
+            <a href="http://localhost:3000/consultas.html" class="consultas-button">
+                <span>🔍</span> Consulta RAG Simples
+            </a>*
         </div>
 
         <div class="upload-area">
@@ -444,8 +476,8 @@
         }
         
         function getStatusText(status, id) {
-             if (status === 'EXISTE') return `EXISTE – ID: ${id}`;
-             if (status === 'CRIADO') return `NÃO EXISTE (CRIADO) – ID: ${id}`;
+             if (status === 'EXISTE') return `EXISTE — ID: ${id}`;
+             if (status === 'CRIADO') return `NÃO EXISTE (CRIADO) — ID: ${id}`;
              return 'NÃO EXISTE (FALHA)';
         }
 

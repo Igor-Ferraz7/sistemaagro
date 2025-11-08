@@ -1,0 +1,15 @@
+.warning-message {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+    border-radius: 4px;
+    padding: 12px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+}
+
+.warning-message strong {
+    margin-right: 10px;
+}

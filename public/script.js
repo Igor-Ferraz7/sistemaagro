@@ -42,7 +42,15 @@ extractButton.addEventListener('click', async () => {
         if (response.ok) {
             jsonOutput.textContent = JSON.stringify(data, null, 2);
             resultContainer.style.display = 'block';
-            messageP.textContent = 'Dados extraídos com sucesso!';
+            
+            // Verificar se está usando fallback
+            if (data.fallback) {
+                messageP.innerHTML = `<strong>⚠️ Atenção!</strong> ${data.fallbackMessage}`;
+                messageP.className = 'warning-message';
+            } else {
+                messageP.textContent = 'Dados extraídos com sucesso!';
+                messageP.className = '';
+            }
         } else {
             messageP.textContent = `Erro: ${data.error}`;
         }
