@@ -1,25 +1,24 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"] // ✅ ADICIONADO
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector] // ✅ ADICIONADO: Habilita pgvector
 }
 
 // Tabela de Pessoas (Fornecedores, Clientes, etc)
 model Pessoas {
   idPessoas   Int      @id @default(autoincrement())
-  tipo        String   @db.VarChar(45)  // Física ou Jurídica
+  tipo        String   @db.VarChar(45) // Física ou Jurídica
   razaosocial String?  @db.VarChar(150)
   fantasia    String?  @db.VarChar(150)
-  documento   String   @db.VarChar(45)  // CPF ou CNPJ
+  documento   String   @db.VarChar(45) // CPF ou CNPJ
   status      String   @db.VarChar(45)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -35,7 +34,7 @@ model Pessoas {
 // Tabela de Classificação
 model Classificacao {
   idClassificacao Int      @id @default(autoincrement())
-  tipo            String   @db.VarChar(45)  // receita, despesa
+  tipo            String   @db.VarChar(45) // receita, despesa
   descricao       String   @db.VarChar(150)
   status          String   @db.VarChar(45)
   createdAt       DateTime @default(now())
@@ -49,17 +48,17 @@ model Classificacao {
 
 // Tabela de Movimento de Contas
 model MovimentoContas {
-  idMovimentoContas            Int      @id @default(autoincrement())
-  tipo                         String   @db.VarChar(45)  // receita, despesa
-  numeronotafiscal             String?  @db.VarChar(45)
-  datemissao                   DateTime @db.Date
-  descricao                    String   @db.VarChar(300)
-  status                       String   @db.VarChar(45)  // pendente, quitado
-  valortotal                   Decimal  @db.Decimal(10, 2)
-  Pessoas_idFornecedorCliente  Int
-  Pessoas_idFaturado           Int
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
+  idMovimentoContas           Int      @id @default(autoincrement())
+  tipo                        String   @db.VarChar(45) // receita, despesa
+  numeronotafiscal            String?  @db.VarChar(45)
+  datemissao                  DateTime @db.Date
+  descricao                   String   @db.VarChar(300)
+  status                      String   @db.VarChar(45) // pendente, quitado
+  valortotal                  Decimal  @db.Decimal(10, 2)
+  Pessoas_idFornecedorCliente Int
+  Pessoas_idFaturado          Int
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   // Relacionamentos
   fornecedorCliente Pessoas                        @relation("FornecedorCliente", fields: [Pessoas_idFornecedorCliente], references: [idPessoas])
@@ -72,16 +71,16 @@ model MovimentoContas {
 
 // Tabela de Parcelas de Contas
 model ParcelaContas {
-  idParcelasContas                Int      @id @default(autoincrement())
-  identificacao                   String   @db.VarChar(45)
-  datavencimento                  DateTime @db.Date
-  valorparcela                    Decimal  @db.Decimal(10, 2)
-  valorpago                       Decimal  @db.Decimal(10, 2) @default(0)
-  valorsaldo                      Decimal  @db.Decimal(10, 2)
-  statusparcela                   String   @db.VarChar(45)  // pago, pendente
+  idParcelasContas                  Int      @id @default(autoincrement())
+  identificacao                     String   @db.VarChar(45)
+  datavencimento                    DateTime @db.Date
+  valorparcela                      Decimal  @db.Decimal(10, 2)
+  valorpago                         Decimal  @default(0) @db.Decimal(10, 2)
+  valorsaldo                        Decimal  @db.Decimal(10, 2)
+  statusparcela                     String   @db.VarChar(45) // pago, pendente
   MovimentoContas_idMovimentoContas Int
-  createdAt                       DateTime @default(now())
-  updatedAt                       DateTime @updatedAt
+  createdAt                         DateTime @default(now())
+  updatedAt                         DateTime @updatedAt
 
   // Relacionamentos
   movimento MovimentoContas @relation(fields: [MovimentoContas_idMovimentoContas], references: [idMovimentoContas], onDelete: Cascade)
@@ -101,4 +100,17 @@ model MovimentoContasClassificacao {
 
   @@id([MovimentoContas_idMovimentoContas, Classificacao_idClassificacao])
   @@map("movimento_contas_classificacao")
+}
+
+// ✅ MODELO CORRIGIDO PARA O RAG EMBEDDINGS (Base de Conhecimento Vetorial)
+model DocumentoContexto {
+  id        Int                        @id @default(autoincrement())
+  texto     String                     @db.Text
+  metadata  Json?
+  // ✅ CORRIGIDO: text-embedding-004 usa 768 dimensões, não 1536
+  embedding Unsupported("vector(768)")
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+
+  @@map("DocumentoContexto")
 }

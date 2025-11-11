@@ -2,9 +2,11 @@
 const { PrismaClient } = require('@prisma/client');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const MODELO_GEMINI = "gemini-2.5-pro";
+const MODELO_GEMINI = "gemini-2.5-flash";
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// ... (Restante do código: interpretarPergunta, buscarNotasFiscais, etc.)
 
 /**
  * Converte uma pergunta em linguagem natural para critérios de busca SQL
@@ -14,9 +16,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 async function interpretarPergunta(pergunta) {
     try {
         console.log(`🤖 Interpretando pergunta: "${pergunta}"`);
-        
+
         const model = genAI.getGenerativeModel({ model: MODELO_GEMINI });
-        
+
         const prompt = `Você é um assistente que converte perguntas sobre notas fiscais em critérios de busca estruturados.
 
 PERGUNTA DO USUÁRIO: "${pergunta}"
@@ -74,17 +76,17 @@ IMPORTANTE:
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const texto = response.text().trim();
-        
+
         const jsonMatch = texto.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
             throw new Error('Resposta do Gemini não contém JSON válido');
         }
-        
+
         const criterios = JSON.parse(jsonMatch[0]);
         console.log('✅ Critérios interpretados:', criterios);
-        
+
         return criterios;
-        
+
     } catch (error) {
         console.error('❌ Erro ao interpretar pergunta:', error);
         throw new Error(`Falha na interpretação: ${error.message}`);
@@ -99,9 +101,9 @@ IMPORTANTE:
 async function buscarNotasFiscais(filtros) {
     try {
         console.log('🔍 Buscando notas fiscais com filtros:', filtros);
-        
+
         const where = {};
-        
+
         // Filtro por fornecedor (nome parcial)
         if (filtros.fornecedor_nome) {
             where.fornecedorCliente = {
@@ -111,7 +113,7 @@ async function buscarNotasFiscais(filtros) {
                 }
             };
         }
-        
+
         // Filtro por CNPJ
         if (filtros.fornecedor_cnpj) {
             const cnpjLimpo = filtros.fornecedor_cnpj.replace(/\D/g, '');
@@ -119,7 +121,7 @@ async function buscarNotasFiscais(filtros) {
                 documento: cnpjLimpo
             };
         }
-        
+
         // Filtro por data
         if (filtros.data_inicio || filtros.data_fim) {
             where.datemissao = {};
@@ -130,7 +132,7 @@ async function buscarNotasFiscais(filtros) {
                 where.datemissao.lte = new Date(filtros.data_fim);
             }
         }
-        
+
         // Filtro por valor
         if (filtros.valor_min !== null || filtros.valor_max !== null) {
             where.valortotal = {};
@@ -141,7 +143,7 @@ async function buscarNotasFiscais(filtros) {
                 where.valortotal.lte = filtros.valor_max;
             }
         }
-        
+
         // Filtro por classificação
         if (filtros.classificacao) {
             where.classificacoes = {
@@ -155,14 +157,14 @@ async function buscarNotasFiscais(filtros) {
                 }
             };
         }
-        
+
         // Filtro por número da nota
         if (filtros.numero_nota) {
             where.numeronotafiscal = {
                 contains: filtros.numero_nota
             };
         }
-        
+
         const movimentos = await prisma.movimentoContas.findMany({
             where,
             include: {
@@ -179,10 +181,10 @@ async function buscarNotasFiscais(filtros) {
                 datemissao: 'desc'
             }
         });
-        
+
         console.log(`✅ Encontradas ${movimentos.length} notas fiscais`);
         return movimentos;
-        
+
     } catch (error) {
         console.error('❌ Erro ao buscar notas fiscais:', error);
         throw new Error(`Falha na busca: ${error.message}`);
@@ -211,20 +213,20 @@ function agregarResultados(movimentos, tipoAgregacao) {
             }))
         };
     }
-    
+
     if (tipoAgregacao === 'soma') {
         const soma = movimentos.reduce((acc, m) => acc + parseFloat(m.valortotal), 0);
         return {
             tipo: 'soma',
             total: movimentos.length,
             valor_total: soma,
-            valor_total_formatado: soma.toLocaleString('pt-BR', { 
-                style: 'currency', 
-                currency: 'BRL' 
+            valor_total_formatado: soma.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
             })
         };
     }
-    
+
     if (tipoAgregacao === 'media') {
         const soma = movimentos.reduce((acc, m) => acc + parseFloat(m.valortotal), 0);
         const media = movimentos.length > 0 ? soma / movimentos.length : 0;
@@ -232,20 +234,20 @@ function agregarResultados(movimentos, tipoAgregacao) {
             tipo: 'media',
             total: movimentos.length,
             valor_medio: media,
-            valor_medio_formatado: media.toLocaleString('pt-BR', { 
-                style: 'currency', 
-                currency: 'BRL' 
+            valor_medio_formatado: media.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
             })
         };
     }
-    
+
     if (tipoAgregacao === 'contagem') {
         return {
             tipo: 'contagem',
             total: movimentos.length
         };
     }
-    
+
     return { tipo: 'desconhecido', dados: movimentos };
 }
 
@@ -258,7 +260,7 @@ function agregarResultados(movimentos, tipoAgregacao) {
 async function gerarRespostaNatural(pergunta, resultados) {
     try {
         const model = genAI.getGenerativeModel({ model: MODELO_GEMINI });
-        
+
         const prompt = `Você é um assistente financeiro que responde perguntas sobre notas fiscais de forma clara e objetiva.
 
 PERGUNTA DO USUÁRIO: "${pergunta}"
@@ -277,7 +279,7 @@ RESPOSTA:`;
         const result = await model.generateContent(prompt);
         const response = await result.response;
         return response.text().trim();
-        
+
     } catch (error) {
         console.error('❌ Erro ao gerar resposta natural:', error);
         return 'Desculpe, não consegui formular uma resposta adequada.';
@@ -292,21 +294,21 @@ RESPOSTA:`;
 async function consultarRAG(pergunta) {
     try {
         console.log('\n🚀 Iniciando consulta RAG...');
-        
+
         // 1. Interpretar a pergunta
         const criterios = await interpretarPergunta(pergunta);
-        
+
         // 2. Buscar no banco de dados
         const movimentos = await buscarNotasFiscais(criterios.filtros);
-        
+
         // 3. Agregar resultados
         const resultadosAgregados = agregarResultados(movimentos, criterios.agregacao);
-        
+
         // 4. Gerar resposta em linguagem natural
         const respostaNatural = await gerarRespostaNatural(pergunta, resultadosAgregados);
-        
+
         console.log('✅ Consulta RAG concluída\n');
-        
+
         return {
             sucesso: true,
             pergunta_original: pergunta,
@@ -318,7 +320,7 @@ async function consultarRAG(pergunta) {
                 timestamp: new Date().toISOString()
             }
         };
-        
+
     } catch (error) {
         console.error('❌ Erro na consulta RAG:', error);
         return {

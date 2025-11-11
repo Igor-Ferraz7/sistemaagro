@@ -2,26 +2,85 @@ const express = require('express');
 const multer = require('multer');
 require('dotenv').config();
 
-
 // Módulos do Agente (Gemini)
-const { 
-    processPDFWithGemini, 
-    MODELO_GEMINI, 
+const {
+    processPDFWithGemini,
+    MODELO_GEMINI,
     CATEGORIAS_DESPESAS,
-    getCategoryExamples 
-} = require('./agents/agent1'); 
+    getCategoryExamples
+} = require('./agents/agent1');
 
-// Módulo de Persistência (BD) - NOVO ARQUIVO
+// Módulo de Persistência (BD)
 const {
     findOrCreatePessoa,
     findOrCreateClassificacao,
     createMovimentoEParcela,
     connectDb,
     disconnectDb
-} = require('./process_data/db'); 
+} = require('./process_data/db');
+
+// Importar o agente RAG Embeddings
+const { consultarRAG_Embedding } = require('./agents/agent_rag_embedding');
+// Importar o agente RAG Simples
+const { consultarRAG } = require('./agents/agent_rag');
+
+// Importar o script de ingestão (VITAL: Cria e Mantém o índice vetorial)
+const { ingestaoInicial } = require('./process_data/ingest_embeddings');
 
 const app = express();
 const port = 3000;
+
+// Middleware para servir arquivos estáticos e processar JSON
+app.use(express.static('public'));
+app.use(express.json()); // Necessário para as rotas /consultar
+
+// Rota de teste
+app.get('/test', (req, res) => {
+    res.json({
+        status: 'ok',
+        service: 'Extractor NF API',
+        gemini_key_configured: !!process.env.GEMINI_API_KEY
+    });
+});
+
+// ------------------------------------------
+// ROTAS RAG
+// ------------------------------------------
+
+// Rota para consultas RAG SIMPLES (Busca SQL)
+app.post('/consultar', express.json(), async (req, res) => {
+    try {
+        const { pergunta } = req.body;
+        if (!pergunta) {
+            return res.status(400).json({ sucesso: false, erro: 'Campo "pergunta" é obrigatório' });
+        }
+        const resultado = await consultarRAG(pergunta);
+        res.json(resultado);
+    } catch (error) {
+        console.error('❌ Erro na rota /consultar:', error);
+        res.status(500).json({ sucesso: false, erro: error.message });
+    }
+});
+
+
+// Rota para consultas RAG EMBEDDINGS (Busca Vetorial)
+app.post('/consultar-embedding', express.json(), async (req, res) => {
+    try {
+        const { pergunta } = req.body;
+        if (!pergunta) {
+            return res.status(400).json({ sucesso: false, erro: 'Campo "pergunta" é obrigatório' });
+        }
+        const resultado = await consultarRAG_Embedding(pergunta);
+        res.json(resultado);
+    } catch (error) {
+        console.error('❌ Erro na rota /consultar-embedding:', error);
+        res.status(500).json({ sucesso: false, erro: error.message });
+    }
+});
+
+// ------------------------------------------
+// ROTA DE EXTRAÇÃO DE PDF
+// ------------------------------------------
 
 // Configuração do Multer para upload de PDFs
 const storage = multer.memoryStorage();
@@ -39,54 +98,32 @@ const upload = multer({
     }
 });
 
-// Middleware para servir arquivos estáticos
-app.use(express.static('public'));
-app.use(express.json());
-
-// Rota de teste
-app.get('/test', (req, res) => {
-    res.json({
-        status: 'ok',
-        service: 'Extractor NF API',
-        gemini_key_configured: !!process.env.GEMINI_API_KEY
-    });
-});
-
 // Rota principal para extração e lançamento de dados
 app.post('/extract-data', upload.single('invoice'), async (req, res) => {
     const startTime = Date.now();
     let extractedData = null;
-    let dbAnalysis = {}; 
+    let dbAnalysis = {};
 
     try {
         if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                error: 'Nenhum arquivo PDF enviado.'
-            });
+            return res.status(400).json({ success: false, error: 'Nenhum arquivo PDF enviado.' });
         }
-
         if (!process.env.GEMINI_API_KEY) {
-            return res.status(503).json({
-                success: false,
-                error: 'Chave da API do Gemini não configurada no arquivo .env.'
-            });
+            return res.status(503).json({ success: false, error: 'Chave da API do Gemini não configurada no arquivo .env.' });
         }
 
         console.log('🚀 Iniciando processamento...');
-        console.log(`- Arquivo: ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`);
 
         // 1. EXTRAÇÃO DE DADOS (GEMINI API)
         try {
             extractedData = await processPDFWithGemini(req.file.buffer);
         } catch (aiError) {
             console.warn('⚠️ Falha na extração com IA, usando dados de fallback:', aiError.message);
-            
-            // Dados de fallback quando o Gemini está indisponível
+            // ... (Dados de fallback omitidos por brevidade)
             extractedData = {
                 fornecedor: {
                     razao_social: "DADOS TEMPORÁRIOS - GEMINI INDISPONÍVEL",
-                    fantasia: "FALLBACK", 
+                    fantasia: "FALLBACK",
                     cnpj: req.body.cnpj_fornecedor || "00000000000000"
                 },
                 faturado: {
@@ -97,16 +134,15 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
                 data_emissao: new Date().toISOString().split('T')[0],
                 descricao_produtos: "Dados temporários devido à indisponibilidade do serviço Gemini",
                 quantidade_parcelas: 1,
-                data_vencimento: new Date().toISOString().split('T')[0], 
+                data_vencimento: new Date().toISOString().split('T')[0],
                 valor_total: req.body.valor_total || 0,
                 classificacao_despesa: req.body.classificacao || "ADMINISTRATIVAS"
             };
         }
 
         // 2. ANÁLISE E PERSISTÊNCIA NO BANCO DE DADOS
-        
+
         // A. FORNECEDOR
-        console.log('🔍 Analisando Fornecedor...');
         const fornecedorResult = await findOrCreatePessoa(
             extractedData.fornecedor.cnpj,
             extractedData.fornecedor.razao_social,
@@ -116,24 +152,21 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
         dbAnalysis.fornecedor = fornecedorResult;
 
         // B. FATURADO
-        console.log('🔍 Analisando Faturado...');
         const faturadoResult = await findOrCreatePessoa(
-            extractedData.faturado.cpf, 
+            extractedData.faturado.cpf,
             extractedData.faturado.nome_completo,
             'FATURADO'
         );
         dbAnalysis.faturado = faturadoResult;
 
         // C. DESPESA
-        console.log('🔍 Analisando Classificação...');
         const despesaResult = await findOrCreateClassificacao(
             extractedData.classificacao_despesa
         );
         dbAnalysis.despesa = despesaResult;
-        
-        // D. CRIAÇÃO DE MOVIMENTO (4. CRIAR UM NOVO REGISTRO DO MOVIMENTO)
+
+        // D. CRIAÇÃO DE MOVIMENTO
         if (fornecedorResult.id && faturadoResult.id && despesaResult.id) {
-            console.log('💾 Lançando Movimento e Parcela...');
             const movimento = await createMovimentoEParcela(
                 extractedData,
                 fornecedorResult.id,
@@ -146,18 +179,20 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
                 id: movimento.idMovimentoContas,
                 parcelaId: movimento.parcelas[0].idParcelasContas
             };
+
+            // ⚠️ GATILHO: Re-ingestão após novo movimento ser criado
+            console.log('🔄 Novo Movimento lançado. Reindexando Embeddings...');
+            await ingestaoInicial(); // <--- CHAMA INGESTÃO APÓS UM NOVO DADO SER INSERIDO
         } else {
             dbAnalysis.movimento = {
                 status: 'FALHA_CRIACAO',
                 message: 'Falha na criação do Movimento. IDs de Fornecedor, Faturado ou Classificação não foram resolvidos.'
             };
         }
-        
+
         // 3. RETORNO DA RESPOSTA
         const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`🎉 Processamento e Lançamento concluído em ${totalTime}s`);
-
-        // Verificar se estamos usando dados de fallback
         const isFallback = extractedData.fornecedor.razao_social === "DADOS TEMPORÁRIOS - GEMINI INDISPONÍVEL";
 
         res.json({
@@ -184,49 +219,18 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
     }
 });
 
-// Importar o agente RAG
-const { consultarRAG } = require('./agents/agent_rag');
 
-// Rota para consultas RAG
-app.post('/consultar', express.json(), async (req, res) => {
-    try {
-        const { pergunta } = req.body;
-        
-        if (!pergunta) {
-            return res.status(400).json({
-                sucesso: false,
-                erro: 'Campo "pergunta" é obrigatório'
-            });
-        }
-        
-        const resultado = await consultarRAG(pergunta);
-        res.json(resultado);
-        
-    } catch (error) {
-        console.error('❌ Erro na rota /consultar:', error);
-        res.status(500).json({
-            sucesso: false,
-            erro: error.message
-        });
-    }
-});
-
-// Middleware de tratamento de erros do Multer (se houver)
+// Middleware de tratamento de erros do Multer
 app.use((error, req, res, next) => {
+    // ... (tratamento de erro do Multer omitido por brevidade)
     if (error instanceof multer.MulterError) {
         if (error.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({
-                success: false,
-                error: 'Arquivo muito grande. Máximo 15MB permitido para PDFs.'
-            });
+            return res.status(400).json({ success: false, error: 'Arquivo muito grande. Máximo 15MB permitido para PDFs.' });
         }
     }
 
     if (error.message.includes('apenas arquivos PDF')) {
-        return res.status(400).json({
-            success: false,
-            error: error.message
-        });
+        return res.status(400).json({ success: false, error: error.message });
     }
 
     console.error('Erro não tratado:', error);
@@ -240,17 +244,26 @@ app.use((error, req, res, next) => {
 // Importar o script de configuração do banco de dados
 const { setupDatabase } = require('./prisma/setup-db');
 
+// ------------------------------------------
+// INICIALIZAÇÃO
+// ------------------------------------------
+
 // Inicialização segura com conexão ao BD
 async function main() {
-    // Configurar o banco de dados antes de conectar
+    // 1. Configurar o banco de dados antes de conectar
     const dbSetupSuccess = await setupDatabase();
     if (!dbSetupSuccess) {
         console.error('❌ Falha na configuração do banco de dados. Encerrando aplicação.');
         process.exit(1);
     }
-    
+
+    // 2. Conectar ao BD
     await connectDb();
-    
+
+    // 3. CHAMADA DO PROCESSO DE INGESTÃO (CRIA O ÍNDICE VETORIAL NA INICIALIZAÇÃO)
+    await ingestaoInicial();
+
+    // 4. Iniciar o Servidor
     app.listen(port, () => {
         console.log('='.repeat(60));
         console.log('🚀 SISTEMA DE EXTRAÇÃO DE DADOS DE NOTAS FISCAIS');
@@ -259,6 +272,7 @@ async function main() {
         console.log(`🔑 API Gemini: ${process.env.GEMINI_API_KEY ? '✅ Configurada' : '❌ Não configurada'}`);
         console.log(`📊 Categorias: ${CATEGORIAS_DESPESAS.length} disponíveis`);
         console.log('📦 Banco de Dados: ✅ Conectado');
+        console.log('🧠 RAG Embeddings: ✅ Índice Vetorial Pronto'); // Status de Verificação
         console.log('='.repeat(60));
 
         if (!process.env.GEMINI_API_KEY) {

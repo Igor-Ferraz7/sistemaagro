@@ -28,7 +28,53 @@
             text-align: center;
             margin-bottom: 50px;
             position: relative;
+            /* Garante que o conteúdo do header não seja escondido pelos botões de navegação */
+            padding-top: 50px; /* Adiciona espaço para os botões de navegação */
         }
+
+        /* NOVO CSS: Container para os botões de consulta */
+        .header-actions {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            gap: 10px; /* Espaço entre os botões */
+            align-items: center;
+        }
+
+        /* NOVO CSS: Estilo base para os botões de consulta */
+        .consultas-button {
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+        }
+
+        /* NOVO CSS: Estilo específico para Consulta Simples */
+        .consultas-button.simple {
+            background: #3182ce;
+        }
+        .consultas-button.simple:hover {
+            background: #2c5282;
+        }
+
+        /* NOVO CSS: Estilo específico para Consulta Embedding */
+        .consultas-button.embedding {
+            background: #38a169; /* Verde */
+        }
+        .consultas-button.embedding:hover {
+            background: #276749;
+        }
+
+        /* --- ESTILOS ORIGINAIS CONTINUAM ABAIXO --- */
 
         .title {
             font-size: 2rem;
@@ -43,28 +89,7 @@
             font-weight: 400;
         }
 
-        .consultas-button {
-            position: absolute;
-            top: 0;
-            right: 0;
-            background: #3182ce;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 20px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.3s;
-        }
-
-        .consultas-button:hover {
-            background: #2c5282;
-        }
+        /* O estilo original .consultas-button foi removido/substituído pela nova estrutura */
 
         .upload-area {
             border: 2px dashed #e2e8f0;
@@ -273,7 +298,7 @@
             gap: 20px;
             margin-bottom: 20px;
         }
-        
+
         .db-item {
             padding: 15px;
             border: 1px solid #e2e8f0;
@@ -311,8 +336,8 @@
         .movimento-success {
             text-align: center;
             padding: 20px;
-            background-color: #f0fff4; 
-            border: 1px solid #9ae6b4; 
+            background-color: #f0fff4;
+            border: 1px solid #9ae6b4;
             border-radius: 6px;
             margin-top: 20px;
         }
@@ -326,7 +351,7 @@
         .movimento-fail {
             text-align: center;
             padding: 15px;
-            background-color: #fff5f5; 
+            background-color: #fff5f5;
             border: 1px solid #feb2b2;
             border-radius: 6px;
             margin-top: 20px;
@@ -350,150 +375,169 @@
                 grid-template-columns: 1fr;
             }
 
-            .consultas-button {
+            /* NOVO CSS: Garante que os botões fiquem empilhados em telas pequenas */
+            .header-actions {
                 position: static;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
                 margin-top: 15px;
+                width: 100%;
+            }
+            .consultas-button {
+                width: 100%;
+                justify-content: center;
+            }
+            .header {
+                padding-top: 0;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1 class="title">Extração e Lançamento de NF</h1>
-            <p class="subtitle">Use a IA para extrair dados de notas fiscais em PDF, verificar no BD e lançar o Contas a Pagar.</p>
-            <a href="http://localhost:3000/consultas.html" class="consultas-button">
-                <span>🔍</span> Consulta RAG Simples
-            </a>*
-        </div>
+<div class="container">
+    <div class="header">
+        <h1 class="title">Extração e Lançamento de NF</h1>
+        <p class="subtitle">Use a IA para extrair dados de notas fiscais em PDF, verificar no BD e lançar o Contas a Pagar.</p>
 
-        <div class="upload-area">
-            <input type="file" id="invoice-file" accept=".pdf" style="display: none;">
-            <label for="invoice-file" class="custom-file-upload">
-                <span>⬆️</span> Selecionar PDF
-            </label>
-            <span id="file-name">Nenhum arquivo escolhido</span>
-            <button id="extract-button" disabled><span>⚙️</span> EXTRAIR E LANÇAR</button>
-        </div>
+        <div class="header-actions">
+            <a href="consultas_simples.html" class="consultas-button simple">
+                <span>📊</span> Consulta Simples
+            </a>
 
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>Processando... Analisando PDF e Banco de Dados...</p>
-        </div>
-
-        <div id="successMessage" class="message success-message">
-             <strong>Sucesso!</strong> Dados extraídos.
-        </div>
-        <div id="errorMessage" class="message error-message">
-            <strong>Erro!</strong> <span id="errorText">Ocorreu um erro.</span>
-        </div>
-
-        <div id="resultsSection" class="results-section">
-            <h2>✔️ Resultados da Extração e Lançamento</h2>
-
-            <div id="dbAnalysisSection" class="data-group">
-                <h3>📊 Análise de Existência e Lançamento no BD</h3>
-                <div id="dbAnalysisContent">Aguardando dados...</div>
-            </div>
-
-            <div class="data-group">
-                <h3>📄 Dados Extraídos (RAW JSON)</h3>
-                <pre id="jsonOutput" class="json-output"></pre>
-                <button id="copy-button">📋 Copiar JSON</button>
-            </div>
-
-            <p id="metadata" class="metadata"></p>
+            <a href="consultas_embedding.html" class="consultas-button embedding">
+                <span>🧠</span> Consulta Embedding
+            </a>
         </div>
     </div>
 
-    <script>
-        const fileInput = document.getElementById('invoice-file');
-        const fileNameSpan = document.getElementById('file-name');
-        const extractButton = document.getElementById('extract-button');
-        const resultsSection = document.getElementById('resultsSection');
-        const jsonOutput = document.getElementById('jsonOutput');
-        const copyButton = document.getElementById('copy-button');
-        const loading = document.getElementById('loading');
-        const successMessage = document.getElementById('successMessage');
-        const errorMessage = document.getElementById('errorMessage');
-        const errorText = document.getElementById('errorText');
+    <div class="upload-area">
+        <input type="file" id="invoice-file" accept=".pdf" style="display: none;">
+        <label for="invoice-file" class="custom-file-upload">
+            <span>⬆️</span> Selecionar PDF
+        </label>
+        <span id="file-name">Nenhum arquivo escolhido</span>
+        <button id="extract-button" disabled><span>⚙️</span> EXTRAIR E LANÇAR</button>
+    </div>
 
-        // --- Funções de UI ---
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Processando... Analisando PDF e Banco de Dados...</p>
+    </div>
 
-        function showLoading() {
-            loading.classList.add('show');
-            extractButton.disabled = true;
-            extractButton.style.background = '#a0aec0';
-            extractButton.innerHTML = '<span>⏳</span> PROCESSANDO...';
+    <div id="successMessage" class="message success-message">
+        <strong>Sucesso!</strong> Dados extraídos.
+    </div>
+    <div id="errorMessage" class="message error-message">
+        <strong>Erro!</strong> <span id="errorText">Ocorreu um erro.</span>
+    </div>
+
+    <div id="resultsSection" class="results-section">
+        <h2>✔️ Resultados da Extração e Lançamento</h2>
+
+        <div id="dbAnalysisSection" class="data-group">
+            <h3>📊 Análise de Existência e Lançamento no BD</h3>
+            <div id="dbAnalysisContent">Aguardando dados...</div>
+        </div>
+
+        <div class="data-group">
+            <h3>📄 Dados Extraídos (RAW JSON)</h3>
+            <pre id="jsonOutput" class="json-output"></pre>
+            <button id="copy-button">📋 Copiar JSON</button>
+        </div>
+
+        <p id="metadata" class="metadata"></p>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('invoice-file');
+    const fileNameSpan = document.getElementById('file-name');
+    const extractButton = document.getElementById('extract-button');
+    const resultsSection = document.getElementById('resultsSection');
+    const jsonOutput = document.getElementById('jsonOutput');
+    const copyButton = document.getElementById('copy-button');
+    const loading = document.getElementById('loading');
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+
+    // --- Funções de UI ---
+
+    function showLoading() {
+        loading.classList.add('show');
+        extractButton.disabled = true;
+        extractButton.style.background = '#a0aec0';
+        extractButton.innerHTML = '<span>⏳</span> PROCESSANDO...';
+    }
+
+    function hideLoading() {
+        loading.classList.remove('show');
+        if (fileInput.files.length > 0) {
+            extractButton.disabled = false;
         }
+        extractButton.style.background = '#1a202c';
+        extractButton.innerHTML = '<span>⚙️</span> EXTRAIR E LANÇAR';
+    }
 
-        function hideLoading() {
-            loading.classList.remove('show');
-            if (fileInput.files.length > 0) {
-                extractButton.disabled = false;
-            }
-            extractButton.style.background = '#1a202c';
-            extractButton.innerHTML = '<span>⚙️</span> EXTRAIR E LANÇAR';
+    function showSuccess(message) {
+        successMessage.innerHTML = message;
+        successMessage.classList.add('show');
+        setTimeout(() => successMessage.classList.remove('show'), 4000);
+    }
+
+    function showError(message) {
+        errorText.textContent = message;
+        errorMessage.classList.add('show');
+        setTimeout(() => errorMessage.classList.remove('show'), 6000);
+    }
+
+    function hideMessages() {
+        successMessage.classList.remove('show');
+        errorMessage.classList.remove('show');
+        resultsSection.classList.remove('show');
+    }
+
+    // --- Lógica de Display de Resultados ---
+
+    function formatCurrency(value) {
+        if (typeof value === 'string') {
+            value = parseFloat(value);
         }
-
-        function showSuccess(message) {
-            successMessage.innerHTML = message;
-            successMessage.classList.add('show');
-            setTimeout(() => successMessage.classList.remove('show'), 4000);
+        if (isNaN(value) || value === null) {
+            return 'R$ 0,00';
         }
+        // Verificar se o valor já está no formato correto (sem necessidade de divisão por 100)
+        // Se o valor for maior que 100 e tiver casas decimais, provavelmente já está no formato correto
+        const reais = value > 100 && value % 1 !== 0 ? value : value / 100;
+        return reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
 
-        function showError(message) {
-            errorText.textContent = message;
-            errorMessage.classList.add('show');
-            setTimeout(() => errorMessage.classList.remove('show'), 6000);
-        }
+    function getStatusClass(status) {
+        if (status === 'EXISTE') return 'status-existe';
+        if (status === 'CRIADO') return 'status-criado';
+        return 'status-nao-existe';
+    }
 
-        function hideMessages() {
-            successMessage.classList.remove('show');
-            errorMessage.classList.remove('show');
-            resultsSection.classList.remove('show');
-        }
+    function getStatusText(status, id) {
+        if (status === 'EXISTE') return `EXISTE — ID: ${id}`;
+        if (status === 'CRIADO') return `NÃO EXISTE (CRIADO) — ID: ${id}`;
+        return 'NÃO EXISTE (FALHA)';
+    }
 
-        // --- Lógica de Display de Resultados ---
+    function displayDbAnalysis(analysis, extractedData) {
+        const contentDiv = document.getElementById('dbAnalysisContent');
+        let html = '';
+        let launchSuccess = false;
 
-        function formatCurrency(value) {
-            if (typeof value === 'string') {
-                value = parseFloat(value);
-            }
-            if (isNaN(value) || value === null) {
-                return 'R$ 0,00';
-            }
-            // Verificar se o valor já está no formato correto (sem necessidade de divisão por 100)
-            // Se o valor for maior que 100 e tiver casas decimais, provavelmente já está no formato correto
-            const reais = value > 100 && value % 1 !== 0 ? value : value / 100;
-            return reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        }
+        // FORNECEDOR E FATURADO (GRID)
+        html += '<div class="db-analysis-grid">';
 
-        function getStatusClass(status) {
-            if (status === 'EXISTE') return 'status-existe';
-            if (status === 'CRIADO') return 'status-criado';
-            return 'status-nao-existe'; 
-        }
-        
-        function getStatusText(status, id) {
-             if (status === 'EXISTE') return `EXISTE — ID: ${id}`;
-             if (status === 'CRIADO') return `NÃO EXISTE (CRIADO) — ID: ${id}`;
-             return 'NÃO EXISTE (FALHA)';
-        }
+        // FORNECEDOR
+        const f = analysis.fornecedor;
+        const fDocLabel = f.documento && f.documento.length > 11 ? 'CNPJ' : 'DOCUMENTO';
 
-        function displayDbAnalysis(analysis, extractedData) {
-            const contentDiv = document.getElementById('dbAnalysisContent');
-            let html = '';
-            let launchSuccess = false;
-
-            // FORNECEDOR E FATURADO (GRID)
-            html += '<div class="db-analysis-grid">';
-            
-            // FORNECEDOR
-            const f = analysis.fornecedor;
-            const fDocLabel = f.documento && f.documento.length > 11 ? 'CNPJ' : 'DOCUMENTO';
-            
-            html += `
+        html += `
                 <div class="db-item">
                     <span class="label">FORNECEDOR:</span>
                     <div class="value">${f.razaoSocial || extractedData.fornecedor.razao_social || 'N/A'}</div>
@@ -505,11 +549,11 @@
                 </div>
             `;
 
-            // FATURADO
-            const fa = analysis.faturado;
-            const faDocLabel = fa.documento && fa.documento.length > 11 ? 'CNPJ' : 'CPF';
-            
-            html += `
+        // FATURADO
+        const fa = analysis.faturado;
+        const faDocLabel = fa.documento && fa.documento.length > 11 ? 'CNPJ' : 'CPF';
+
+        html += `
                 <div class="db-item">
                     <span class="label">FATURADO:</span>
                     <div class="value">${fa.razaoSocial || extractedData.faturado.nome_completo || 'N/A'}</div>
@@ -520,19 +564,19 @@
                     <div class="value ${getStatusClass(fa.status)}">${getStatusText(fa.status, fa.id)}</div>
                 </div>
             `;
-            html += '</div>'; 
+        html += '</div>';
 
-            // NÚMERO DA NOTA FISCAL
-            html += `
+        // NÚMERO DA NOTA FISCAL
+        html += `
                 <div class="db-item">
                     <span class="label">NÚMERO DA NOTA FISCAL:</span>
                     <div class="value">${extractedData.numero_nota_fiscal || 'N/A'}</div>
                 </div>
             `;
 
-            // CLASSIFICAÇÃO (DESPESA)
-            const d = analysis.despesa;
-            html += `
+        // CLASSIFICAÇÃO (DESPESA)
+        const d = analysis.despesa;
+        html += `
                 <div class="db-item">
                     <span class="label">CLASSIFICAÇÃO (DESPESA):</span>
                     <div class="value">${extractedData.classificacao_despesa || 'N/A'}</div>
@@ -541,49 +585,49 @@
                 </div>
             `;
 
-            // MOVIMENTO (Sessão de Sucesso/Falha)
-            const m = analysis.movimento;
-            if (m && m.status === 'CRIADO_SUCESSO') {
-                launchSuccess = true;
-                html += `
+        // MOVIMENTO (Sessão de Sucesso/Falha)
+        const m = analysis.movimento;
+        if (m && m.status === 'CRIADO_SUCESSO') {
+            launchSuccess = true;
+            html += `
                     <div class="movimento-success">
                         <h4>✅ REGISTRO FOI LANÇADO COM SUCESSO.</h4>
                         <p>Movimento ID: ${m.id} | Parcela ID: ${m.parcelaId} | Valor Total NF: ${formatCurrency(extractedData.valor_total)}</p>
                     </div>
                 `;
-            } else if (m) {
-                html += `
+        } else if (m) {
+            html += `
                     <div class="movimento-fail">
                         <h4>❌ FALHA NO LANÇAMENTO DO REGISTRO:</h4>
                         <p>${m.message}</p>
                     </div>
                 `;
-            }
-
-            contentDiv.innerHTML = html;
-            
-            // Atualiza a mensagem principal no topo (5. INFORMAR AO USUÁRIO QUE REGISTRO FOI LANÇADO COM SUCESSO)
-            if (launchSuccess) {
-                 showSuccess('<strong>Sucesso!</strong> Dados extraídos e **Registro de Contas a Pagar Lançado**!');
-            } else {
-                showSuccess('<strong>Atenção!</strong> Dados extraídos, mas houve um problema no lançamento do Movimento. Verifique os IDs de dependência.');
-            }
         }
 
-        function displayResults(result) {
-            hideLoading();
-            hideMessages();
-            
-            if (result.dbAnalysis && result.data) {
-                displayDbAnalysis(result.dbAnalysis, result.data);
-            } else {
-                 showError('Estrutura de resposta inválida.');
-            }
+        contentDiv.innerHTML = html;
 
-            jsonOutput.textContent = JSON.stringify(result.data, null, 2); 
+        // Atualiza a mensagem principal no topo (5. INFORMAR AO USUÁRIO QUE REGISTRO FOI LANÇADO COM SUCESSO)
+        if (launchSuccess) {
+            showSuccess('<strong>Sucesso!</strong> Dados extraídos e **Registro de Contas a Pagar Lançado**!');
+        } else {
+            showSuccess('<strong>Atenção!</strong> Dados extraídos, mas houve um problema no lançamento do Movimento. Verifique os IDs de dependência.');
+        }
+    }
 
-            const metadata = document.getElementById('metadata');
-            metadata.innerHTML = `
+    function displayResults(result) {
+        hideLoading();
+        hideMessages();
+
+        if (result.dbAnalysis && result.data) {
+            displayDbAnalysis(result.dbAnalysis, result.data);
+        } else {
+            showError('Estrutura de resposta inválida.');
+        }
+
+        jsonOutput.textContent = JSON.stringify(result.data, null, 2);
+
+        const metadata = document.getElementById('metadata');
+        metadata.innerHTML = `
                 <strong>Informações do Processamento:</strong><br>
                 Arquivo: ${result.metadata.filename} |
                 Tamanho: ${(result.metadata.fileSize / 1024).toFixed(1)} KB |
@@ -591,80 +635,80 @@
                 Processado em: ${new Date(result.metadata.timestamp).toLocaleString('pt-BR')}
             `;
 
-            resultsSection.classList.add('show');
+        resultsSection.classList.add('show');
+    }
+
+    // --- Event Handlers ---
+
+    fileInput.addEventListener('change', () => {
+        hideMessages();
+        if (fileInput.files.length > 0) {
+            fileNameSpan.textContent = fileInput.files[0].name;
+            extractButton.disabled = false;
+        } else {
+            fileNameSpan.textContent = 'Nenhum arquivo escolhido';
+            extractButton.disabled = true;
+        }
+    });
+
+    extractButton.addEventListener('click', async () => {
+        const file = fileInput.files[0];
+        if (!file) {
+            showError('Por favor, selecione um arquivo.');
+            return;
         }
 
-        // --- Event Handlers ---
+        const formData = new FormData();
+        formData.append('invoice', file);
 
-        fileInput.addEventListener('change', () => {
-            hideMessages();
-            if (fileInput.files.length > 0) {
-                fileNameSpan.textContent = fileInput.files[0].name;
-                extractButton.disabled = false;
+        hideMessages();
+        showLoading();
+
+        try {
+            const response = await fetch('/extract-data', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                displayResults(data);
             } else {
-                fileNameSpan.textContent = 'Nenhum arquivo escolhido';
-                extractButton.disabled = true;
-            }
-        });
-
-        extractButton.addEventListener('click', async () => {
-            const file = fileInput.files[0];
-            if (!file) {
-                showError('Por favor, selecione um arquivo.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('invoice', file);
-
-            hideMessages();
-            showLoading();
-
-            try {
-                const response = await fetch('/extract-data', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    displayResults(data);
-                } else {
-                    showError(data.error || 'Erro desconhecido na extração.');
-                    hideLoading();
-                }
-
-            } catch (error) {
-                console.error('Erro na requisição:', error);
-                showError('Erro ao se conectar com o servidor ou problema de rede.');
+                showError(data.error || 'Erro desconhecido na extração.');
                 hideLoading();
             }
-        });
 
-        copyButton.addEventListener('click', () => {
-            navigator.clipboard.writeText(jsonOutput.textContent)
-                .then(() => {
-                    alert('JSON copiado para a área de transferência!');
-                })
-                .catch(err => {
-                    console.error('Erro ao copiar:', err);
-                    alert('Falha ao copiar o JSON.');
-                });
-        });
+        } catch (error) {
+            console.error('Erro na requisição:', error);
+            showError('Erro ao se conectar com o servidor ou problema de rede.');
+            hideLoading();
+        }
+    });
 
-
-        // Test server connection on load
-        fetch('/test')
-            .then(response => response.json())
-            .then(data => {
-                if (!data.gemini_key_configured) {
-                    showError('API do Gemini não configurada. Configure a chave no arquivo .env do servidor.');
-                }
+    copyButton.addEventListener('click', () => {
+        navigator.clipboard.writeText(jsonOutput.textContent)
+            .then(() => {
+                alert('JSON copiado para a área de transferência!');
             })
-            .catch(() => {
-                showError('Falha ao conectar com o servidor Node.js. Certifique-se de que está rodando.');
+            .catch(err => {
+                console.error('Erro ao copiar:', err);
+                alert('Falha ao copiar o JSON.');
             });
-    </script>
+    });
+
+
+    // Test server connection on load
+    fetch('/test')
+        .then(response => response.json())
+        .then(data => {
+            if (!data.gemini_key_configured) {
+                showError('API do Gemini não configurada. Configure a chave no arquivo .env do servidor.');
+            }
+        })
+        .catch(() => {
+            showError('Falha ao conectar com o servidor Node.js. Certifique-se de que está rodando.');
+        });
+</script>
 </body>
 </html>

@@ -25,9 +25,8 @@ async function disconnectDb() {
  * @returns {Promise<Object>} Resultado da operação com status e ID.
  */
 async function findOrCreatePessoa(documento, razaoSocial, tipo, fantasia = null) {
-    // 1. FORNECEDOR/FATURADO: Deve consultar no Banco de Dados e informar se existe ou não.
     const docLimpo = documento ? documento.replace(/\D/g, '') : null;
-    
+
     if (!docLimpo || !razaoSocial) {
         return {
             status: 'ERRO_DADOS',
@@ -50,10 +49,9 @@ async function findOrCreatePessoa(documento, razaoSocial, tipo, fantasia = null)
             razaoSocial: pessoa.razaosocial
         };
     } else {
-        // 2. CRIAR O NOVO FORNECEDOR/FATURADO (se for o caso)
+        // CRIAR O NOVO FORNECEDOR/FATURADO
         const newPessoa = await prisma.pessoas.create({
             data: {
-                // Heurística: 14 dígitos (CNPJ) = JURIDICA. Outros (CPF) = FISICA.
                 tipo: docLimpo.length > 11 ? 'JURIDICA' : 'FISICA',
                 razaosocial: razaoSocial,
                 fantasia: fantasia || razaoSocial,
@@ -78,19 +76,18 @@ async function findOrCreatePessoa(documento, razaoSocial, tipo, fantasia = null)
  * @returns {Promise<Object>} Resultado da operação com status e ID.
  */
 async function findOrCreateClassificacao(descricao) {
-    // DESPESA: Deve consultar no Banco de Dados e informar se a classificação existe ou não.
     if (!descricao) {
         return {
             status: 'ERRO_DADOS',
             message: `Descrição de despesa não fornecida`
         };
     }
-    
+
     let classificacao = await prisma.classificacao.findFirst({
-        where: { 
-            descricao: { 
+        where: {
+            descricao: {
                 equals: descricao,
-                mode: 'insensitive' 
+                mode: 'insensitive'
             },
             tipo: 'DESPESA'
         }
@@ -105,10 +102,10 @@ async function findOrCreateClassificacao(descricao) {
             message: 'EXISTE'
         };
     } else {
-        // 3. CRIAR NOVA DESPESA (se for o caso)
+        // CRIAR NOVA DESPESA
         const newClassificacao = await prisma.classificacao.create({
             data: {
-                tipo: 'DESPESA', 
+                tipo: 'DESPESA',
                 descricao: descricao,
                 status: 'ATIVA'
             }
@@ -124,14 +121,14 @@ async function findOrCreateClassificacao(descricao) {
 
 
 /**
- * 4. CRIA UM NOVO REGISTRO DO MOVIMENTO
+ * CRIA UM NOVO REGISTRO DO MOVIMENTO E PARCELA.
  */
 async function createMovimentoEParcela(data, idFornecedor, idFaturado, idClassificacao) {
-    
+
     // Tratamento do valor (convertendo de centavos para Decimal)
-    const valorTotalReais = parseFloat(data.valor_total) / 100; 
+    const valorTotalReais = parseFloat(data.valor_total) / 100;
     const dataEmissao = new Date(data.data_emissao);
-    const dataVencimento = data.data_vencimento ? new Date(data.data_vencimento) : new Date(); 
+    const dataVencimento = data.data_vencimento ? new Date(data.data_vencimento) : new Date();
     const quantidadeParcelas = data.quantidade_parcelas || 1;
     const valorParcela = valorTotalReais / quantidadeParcelas;
     const identificacaoParcela = `1/${quantidadeParcelas}`;
@@ -147,16 +144,16 @@ async function createMovimentoEParcela(data, idFornecedor, idFaturado, idClassif
             numeronotafiscal: data.numero_nota_fiscal,
             datemissao: dataEmissao,
             descricao: data.descricao_produtos || `NF ${data.numero_nota_fiscal}`,
-            status: 'PENDENTE', 
+            status: 'PENDENTE',
             valortotal: valorTotalReais,
-            
+
             Pessoas_idFornecedorCliente: idFornecedor,
             Pessoas_idFaturado: idFaturado,
-            
+
             // Relaciona a Classificação (MovimentoContasClassificacao)
             classificacoes: {
                 create: {
-                    Classificacao_idClassificacao: idClassificacao 
+                    Classificacao_idClassificacao: idClassificacao
                 }
             },
 
@@ -164,9 +161,9 @@ async function createMovimentoEParcela(data, idFornecedor, idFaturado, idClassif
             parcelas: {
                 create: {
                     identificacao: identificacaoParcela,
-                    datavencimento: dataVencimento, 
+                    datavencimento: dataVencimento,
                     valorparcela: valorParcela,
-                    valorsaldo: valorParcela, 
+                    valorsaldo: valorParcela,
                     statusparcela: 'PENDENTE',
                 }
             }
@@ -181,10 +178,77 @@ async function createMovimentoEParcela(data, idFornecedor, idFaturado, idClassif
 }
 
 
+/**
+ * 🎯 Consulta movimentos de contas com filtros avançados.
+ * ESSENCIAL para o agente RAG Simples (agent_rag.js) funcionar.
+ * @param {Object} filtros - Filtros de busca estruturados (gerados pelo Gemini).
+ * @returns {Promise<Array>} Lista de movimentos encontrados, incluindo relações.
+ */
+async function consultarMovimentos(filtros = {}) {
+    const where = {};
+    const {
+        fornecedor_nome, fornecedor_cnpj, data_inicio, data_fim,
+        valor_min, valor_max, classificacao, numero_nota
+    } = filtros;
+
+
+    if (fornecedor_nome) {
+        where.fornecedorCliente = { razaosocial: { contains: fornecedor_nome, mode: 'insensitive' } };
+    }
+    if (fornecedor_cnpj) {
+        const cnpjLimpo = fornecedor_cnpj.replace(/\D/g, '');
+        // Adiciona ou sobrepõe o filtro de documento no fornecedorCliente
+        where.fornecedorCliente = { ...where.fornecedorCliente, documento: cnpjLimpo };
+    }
+    if (data_inicio || data_fim) {
+        where.datemissao = {};
+        if (data_inicio) where.datemissao.gte = new Date(data_inicio);
+        if (data_fim) where.datemissao.lte = new Date(data_fim);
+    }
+    if (valor_min !== null || valor_max !== null) {
+        where.valortotal = {};
+        if (valor_min !== null) where.valortotal.gte = valor_min;
+        if (valor_max !== null) where.valortotal.lte = valor_max;
+    }
+    if (classificacao) {
+        where.classificacoes = {
+            some: {
+                classificacao: { descricao: { contains: classificacao, mode: 'insensitive' } }
+            }
+        };
+    }
+    if (numero_nota) {
+        where.numeronotafiscal = { contains: numero_nota };
+    }
+
+    // Executa a consulta, incluindo todas as relações necessárias para o RAG
+    const movimentos = await prisma.movimentoContas.findMany({
+        where,
+        include: {
+            fornecedorCliente: true,
+            faturado: true,
+            parcelas: true,
+            classificacoes: { include: { classificacao: true } }
+        },
+        orderBy: { datemissao: 'desc' }
+    });
+
+    return movimentos;
+}
+
+
+// --- EXPORTAÇÕES (module.exports completo) ---
+
 module.exports = {
+    // Conexão
+    connectDb,
+    disconnectDb,
+
+    // Operações de Inserção/Consulta (Usadas na extração de NF)
     findOrCreatePessoa,
     findOrCreateClassificacao,
     createMovimentoEParcela,
-    connectDb,
-    disconnectDb
+
+    // Operação de Consulta (Essencial para o RAG Simples)
+    consultarMovimentos,
 };

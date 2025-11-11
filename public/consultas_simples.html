@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta RAG SIMPLES (Busca Estruturada)</title>
+    <style>
+        /* [Seu CSS está aqui. Use o CSS original, exceto pelos novos ajustes de navegação abaixo] */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative; /* Para posicionar o botão Voltar */
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding-top: 50px; /* Espaço para o botão Voltar */
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* NOVO: Botão Voltar */
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #2d3748;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.3s;
+        }
+        .back-button:hover {
+            background: #1a202c;
+        }
+
+
+        .search-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .search-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .examples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .example-btn {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #4a5568;
+        }
+
+        .example-btn:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+            transform: translateY(-2px);
+        }
+
+        /* --- Estilos para o grupo de botões (Apenas um botão agora) --- */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .search-btn {
+            width: 100%;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .search-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-simples {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .btn-simples:hover:not(:disabled) {
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        /* O estilo .btn-embedding não será usado aqui, mas é mantido por precaução */
+        .btn-embedding {
+            background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+        }
+        .btn-embedding:hover:not(:disabled) {
+            box-shadow: 0 5px 20px rgba(56, 161, 105, 0.4);
+        }
+        /* --- FIM: Estilos para o grupo de botões --- */
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .answer-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .answer-box h2 {
+            color: #2d3748;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .answer-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #4a5568;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            white-space: pre-wrap;
+        }
+
+        .data-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .data-box h3 {
+            color: #2d3748;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .summary-card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .summary-card .label {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .table th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .table tr:hover {
+            background: #f7fafc;
+        }
+
+        .error-box {
+            background: #fff5f5;
+            border: 2px solid #feb2b2;
+            color: #c53030;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* Novo estilo para exibir o contexto RAG */
+        .context-details {
+            font-size: 0.9rem;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px dashed #cbd5e0;
+        }
+
+        .context-details h4 {
+            font-size: 1rem;
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .context-details pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            padding: 5px;
+            background: #edf2f7;
+            border-radius: 4px;
+        }
+
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .examples {
+                flex-direction: column;
+            }
+
+            .example-btn {
+                width: 100%;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+            /* Garantir que o único botão ocupe 100% da largura */
+            .button-group button {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/" class="back-button">
+        ⬅️ Voltar para Extração
+    </a>
+
+    <div class="header">
+        <h1>📊 Consulta RAG SIMPLES</h1>
+        <p>Faça perguntas que envolvam dados estruturados (somas, médias, listagens) das suas NFs.</p>
+    </div>
+
+    <div class="search-box">
+        <label class="search-label">Digite sua pergunta:</label>
+        <input
+                type="text"
+                id="pergunta"
+                class="search-input"
+                placeholder="Ex: Quanto gastei com fornecedor XYZ em outubro?"
+        >
+
+        <div class="examples">
+            <button class="example-btn" data-query="Quanto gastei nos últimos 30 dias?">
+                💰 Gastos últimos 30 dias
+            </button>
+            <button class="example-btn" data-query="Mostre todas as notas acima de R$ 5000">
+                📊 Notas > R$ 5.000
+            </button>
+            <button class="example-btn" data-query="Qual a média de gastos por mês?">
+                📈 Média de gastos
+            </button>
+            <button class="example-btn" data-query="Liste as despesas da categoria 'MARKETING'">
+                📋 Listar MARKETING
+            </button>
+        </div>
+
+        <div class="button-group">
+            <button id="consultarSimplesBtn" class="search-btn btn-simples">
+                🔍 EXECUTAR CONSULTA SIMPLES
+            </button>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p id="loadingText">Analisando sua pergunta e buscando dados (SIMPLES)...</p>
+    </div>
+
+    <div id="error" class="error-box" style="display: none;">
+        <strong>Erro:</strong> <span id="errorText"></span>
+    </div>
+
+    <div id="results" class="results">
+        <div class="answer-box">
+            <h2 id="answerHeader">💬 Resposta (SIMPLES)</h2>
+            <div id="answerText" class="answer-text"></div>
+
+            <div id="contextSection" class="context-details" style="display: none;">
+                <h4>Critérios de Busca (SQL) utilizados:</h4>
+                <pre id="contextContent"></pre>
+            </div>
+        </div>
+
+        <div id="summarySection" class="data-box" style="display: none;">
+            <h3>📊 Resumo</h3>
+            <div id="summaryContent"></div>
+        </div>
+
+        <div id="tableSection" class="data-box" style="display: none;">
+            <h3>📋 Detalhes</h3>
+            <div id="tableContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const perguntaInput = document.getElementById('pergunta');
+    const consultarSimplesBtn = document.getElementById('consultarSimplesBtn');
+    const loading = document.getElementById('loading');
+    const loadingText = document.getElementById('loadingText');
+    const error = document.getElementById('error');
+    const errorText = document.getElementById('errorText');
+    const results = document.getElementById('results');
+    const answerHeader = document.getElementById('answerHeader');
+    const answerText = document.getElementById('answerText');
+    const summarySection = document.getElementById('summarySection');
+    const summaryContent = document.getElementById('summaryContent');
+    const tableSection = document.getElementById('tableSection');
+    const tableContent = document.getElementById('tableContent');
+    const contextSection = document.getElementById('contextSection');
+    const contextContent = document.getElementById('contextContent');
+
+    // --- Event Listeners dos Botões ---
+
+    consultarSimplesBtn.addEventListener('click', () => consultar('simples'));
+
+    // Enter para consultar
+    perguntaInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            consultar('simples');
+        }
+    });
+
+    // Exemplos rápidos
+    document.querySelectorAll('.example-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            perguntaInput.value = btn.dataset.query;
+            perguntaInput.focus();
+        });
+    });
+
+    // --- Funções Auxiliares ---
+
+    function setButtonsDisabled(disabled) {
+        consultarSimplesBtn.disabled = disabled;
+    }
+
+    function showError(message) {
+        errorText.textContent = message;
+        error.style.display = 'block';
+        setTimeout(() => {
+            error.style.display = 'none';
+        }, 6000);
+    }
+
+    function hideAll() {
+        error.style.display = 'none';
+        results.classList.remove('show');
+        summarySection.style.display = 'none';
+        tableSection.style.display = 'none';
+        contextSection.style.display = 'none';
+    }
+
+    // --- Função de Consulta Principal (Adaptada para SIMPLES) ---
+
+    async function consultar(mode) {
+        const pergunta = perguntaInput.value.trim();
+
+        if (!pergunta) {
+            showError('Por favor, digite uma pergunta.');
+            return;
+        }
+
+        hideAll();
+        loading.classList.add('show');
+        setButtonsDisabled(true);
+
+        // Endpoint fixo para SIMPLES
+        const endpoint = '/consultar';
+        loadingText.textContent = `Analisando sua pergunta e buscando dados (SIMPLES)...`;
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pergunta })
+            });
+
+            const data = await response.json();
+
+            if (data.sucesso) {
+                displayResults(data);
+            } else {
+                showError(data.erro || 'Erro ao processar consulta');
+            }
+
+        } catch (err) { //qualquer coisa tirar aqui esse catch
+            console.error('Erro:', err);
+            showError('Erro de conexão com o servidor');
+        } finally {
+            loading.classList.remove('show');
+            setButtonsDisabled(false);
+        }
+    }
+
+    // --- Função de Exibição de Resultados (Adaptada para SIMPLES) ---
+
+    function displayResults(data) {
+
+        // 1. Resposta Natural e Cabeçalho
+        answerHeader.innerHTML = `💬 Resposta (SIMPLES)`;
+        answerText.textContent = data.resposta_natural;
+
+        // 2. Contexto (SQL)
+        contextContent.innerHTML = `
+                <h4>Critérios de Busca (SQL)</h4>
+                <pre>${JSON.stringify(data.criterios_busca, null, 2)}</pre>
+             `;
+        contextSection.style.display = 'block';
+
+
+        // 3. Resumo e Tabela (Específico para RAG SIMPLES - Busca Estruturada)
+        if (data.resultados) {
+
+            // Resumo (Soma/Média)
+            if (data.resultados.tipo === 'soma' || data.resultados.tipo === 'media') {
+                summarySection.style.display = 'block';
+                const valor = data.resultados.tipo === 'soma'
+                    ? data.resultados.valor_total_formatado
+                    : data.resultados.valor_medio_formatado;
+                const label = data.resultados.tipo === 'soma'
+                    ? 'Valor Total'
+                    : 'Valor Médio';
+
+                summaryContent.innerHTML = `
+                        <div class="summary-card">
+                            <div class="label">${label}</div>
+                            <div class="value">${valor}</div>
+                            <div class="label">${data.resultados.total} nota(s) encontrada(s)</div>
+                        </div>
+                    `;
+            }
+
+            // Tabela de detalhes (Lista)
+            if (data.resultados.tipo === 'lista' && data.resultados.dados.length > 0) {
+                tableSection.style.display = 'block';
+
+                let tableHTML = `
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>NF</th>
+                                    <th>Fornecedor</th>
+                                    <th>Data</th>
+                                    <th>Valor</th>
+                                    <th>Categoria</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                data.resultados.dados.forEach(item => {
+                    const dataFormatada = new Date(item.data).toLocaleDateString('pt-BR');
+                    const valorFormatado = item.valor.toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                    });
+
+                    tableHTML += `
+                            <tr>
+                                <td>${item.numero_nf || 'N/A'}</td>
+                                <td>${item.fornecedor}</td>
+                                <td>${dataFormatada}</td>
+                                <td><strong>${valorFormatado}</strong></td>
+                                <td>${item.classificacao}</td>
+                            </tr>
+                        `;
+                });
+
+                tableHTML += '</tbody></table>';
+                tableContent.innerHTML = tableHTML;
+            }
+        }
+
+        // 4. Exibir resultados finais
+        results.classList.add('show');
+    }
+
+</script>
+</body>
+</html>

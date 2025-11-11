@@ -1,14 +1,16 @@
+/* AJUSTE 1: Corpo da Página - Remove a centralização forçada */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    /* justify-content: center; REMOVIDO */
+    /* align-items: center; REMOVIDO */
+    min-height: 100vh; /* Usa min-height para garantir altura total */
     background-color: #f4f7f9;
     color: #333;
     margin: 0;
+    padding: 20px 0; /* Adiciona padding para o conteúdo não colar nas bordas */
 }
 
+/* AJUSTE 2: Container - Volta a ser o elemento centralizado (mas verticalmente dinâmico) */
 .container {
     background: #fff;
     padding: 40px;
@@ -16,7 +18,9 @@ body {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     text-align: center;
     width: 90%;
-    max-width: 700px;
+    max-width: 800px; /* Aumentado para melhor visualização */
+    margin: 40px auto; /* Centraliza horizontalmente e adiciona margem topo/base */
+    position: relative; /* Necessário para posicionar os botões de navegação */
 }
 
 h1 {
@@ -28,6 +32,47 @@ p {
     color: #7f8c8d;
     margin-top: 0;
 }
+
+/* NOVO: Estilos para o Header (onde os botões de navegação ficarão) */
+.header-actions {
+    position: absolute;
+    top: 40px; /* Alinha com o padding do container */
+    right: 40px;
+    display: flex;
+    gap: 10px; /* Espaço entre os botões */
+}
+
+/* NOVO: Estilos para os Botões de Navegação */
+.consultas-button {
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px; /* Ajuste o padding para ficarem menores */
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.3s;
+}
+
+.consultas-button.simple {
+    background: #3498db; /* Azul */
+}
+.consultas-button.simple:hover {
+    background: #2980b9;
+}
+
+.consultas-button.embedding {
+    background: #2ecc71; /* Verde */
+}
+.consultas-button.embedding:hover {
+    background: #27ae60;
+}
+
+/* --- Estilos Existentes (Mantidos ou Ajustados) --- */
 
 .upload-area {
     border: 2px dashed #bdc3c7;
@@ -69,6 +114,8 @@ p {
     background-color: #3498db;
     color: #fff;
     transition: background-color 0.3s;
+    width: 100%; /* Garante que o botão de extração use toda a largura */
+    margin-top: 15px;
 }
 
 #extract-button:hover:not(:disabled) {

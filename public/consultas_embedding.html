@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta RAG EMBEDDING (Busca Contextual)</title>
+    <style>
+        /* CSS unificado do arquivo anterior (mantido para a estrutura de estilo) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            /* Mudei o gradiente para destacar o Embedding (Verde) */
+            background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding-top: 50px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Botão Voltar */
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #2d3748;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.3s;
+        }
+        .back-button:hover {
+            background: #1a202c;
+        }
+
+
+        .search-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .search-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #38a169; /* Cor Embedding */
+            box-shadow: 0 0 0 3px rgba(56, 161, 105, 0.1);
+        }
+
+        .examples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .example-btn {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #4a5568;
+        }
+
+        .example-btn:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+            transform: translateY(-2px);
+        }
+
+        /* --- Estilos para o grupo de botões (Apenas um botão agora) --- */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .search-btn {
+            width: 100%;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .search-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* O estilo .btn-simples não será usado aqui */
+        .btn-simples {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .btn-simples:hover:not(:disabled) {
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Estilo para EMBEDDING (Verde) */
+        .btn-embedding {
+            background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+        }
+        .btn-embedding:hover:not(:disabled) {
+            box-shadow: 0 5px 20px rgba(56, 161, 105, 0.4);
+        }
+        /* --- FIM: Estilos para o grupo de botões --- */
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #38a169; /* Cor Embedding */
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .answer-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .answer-box h2 {
+            color: #2d3748;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .answer-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #4a5568;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #38a169; /* Cor Embedding */
+            white-space: pre-wrap;
+        }
+
+        .data-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .data-box h3 {
+            color: #2d3748;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+        }
+
+        /* Sumário e Tabela não são relevantes para o modo Embedding, então vamos ocultá-los por padrão,
+           mas manter os estilos caso necessário */
+        .summary-card, .table {
+            display: none; /* Forçar ocultar no Embedding */
+        }
+
+
+        .error-box {
+            background: #fff5f5;
+            border: 2px solid #feb2b2;
+            color: #c53030;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* Estilo para exibir o contexto RAG */
+        .context-details {
+            font-size: 0.9rem;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px dashed #cbd5e0;
+        }
+
+        .context-details h4 {
+            font-size: 1rem;
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .context-details pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            padding: 5px;
+            background: #edf2f7;
+            border-radius: 4px;
+        }
+
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .examples {
+                flex-direction: column;
+            }
+
+            .example-btn {
+                width: 100%;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+            .button-group button {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/" class="back-button">
+        ⬅️ Voltar para Extração
+    </a>
+
+    <div class="header">
+        <h1>🧠 Consulta RAG EMBEDDING</h1>
+        <p>Faça perguntas contextuais sobre o conteúdo dos seus documentos e anotações.</p>
+    </div>
+
+    <div class="search-box">
+        <label class="search-label">Digite sua pergunta:</label>
+        <input
+                type="text"
+                id="pergunta"
+                class="search-input"
+                placeholder="Ex: Por que houve uma despesa de 'ADMINISTRATIVAS' em 2024?"
+        >
+
+        <div class="examples">
+            <button class="example-btn" data-query="Por que houve uma despesa de 'ADMINISTRATIVAS' em 2024?">
+                ❓ Contexto de despesa
+            </button>
+            <button class="example-btn" data-query="Qual é a descrição completa da Nota Fiscal TEMPORÁRIO?">
+                📄 Detalhes da NF
+            </button>
+            <button class="example-btn" data-query="Explique os termos de pagamento da nota mais recente.">
+                💲 Termos de pagamento
+            </button>
+            <button class="example-btn" data-query="Quem aprovou o pagamento da nota fiscal 1234?">
+                👥 Quem aprovou?
+            </button>
+        </div>
+
+        <div class="button-group">
+            <button id="consultarEmbeddingBtn" class="search-btn btn-embedding">
+                🧠 EXECUTAR CONSULTA EMBEDDING
+            </button>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p id="loadingText">Analisando sua pergunta e buscando dados (EMBEDDING)...</p>
+    </div>
+
+    <div id="error" class="error-box" style="display: none;">
+        <strong>Erro:</strong> <span id="errorText"></span>
+    </div>
+
+    <div id="results" class="results">
+        <div class="answer-box">
+            <h2 id="answerHeader">💬 Resposta (EMBEDDING)</h2>
+            <div id="answerText" class="answer-text"></div>
+
+            <div id="contextSection" class="context-details" style="display: none;">
+                <h4>Contexto (Chunks de Texto) Utilizado pela IA:</h4>
+                <pre id="contextContent"></pre>
+            </div>
+        </div>
+
+        <div id="summarySection" class="data-box" style="display: none;">
+            <h3>📊 Resumo</h3>
+            <div id="summaryContent"></div>
+        </div>
+
+        <div id="tableSection" class="data-box" style="display: none;">
+            <h3>📋 Detalhes</h3>
+            <div id="tableContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const perguntaInput = document.getElementById('pergunta');
+    const consultarEmbeddingBtn = document.getElementById('consultarEmbeddingBtn');
+    const loading = document.getElementById('loading');
+    const loadingText = document.getElementById('loadingText');
+    const error = document.getElementById('error');
+    const errorText = document.getElementById('errorText');
+    const results = document.getElementById('results');
+    const answerHeader = document.getElementById('answerHeader');
+    const answerText = document.getElementById('answerText');
+    const summarySection = document.getElementById('summarySection');
+    const summaryContent = document.getElementById('summaryContent');
+    const tableSection = document.getElementById('tableSection');
+    const tableContent = document.getElementById('tableContent');
+    const contextSection = document.getElementById('contextSection');
+    const contextContent = document.getElementById('contextContent');
+
+    // --- Event Listeners dos Botões ---
+
+    consultarEmbeddingBtn.addEventListener('click', () => consultar('embedding'));
+
+    // Enter para consultar
+    perguntaInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            consultar('embedding');
+        }
+    });
+
+    // Exemplos rápidos
+    document.querySelectorAll('.example-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            perguntaInput.value = btn.dataset.query;
+            perguntaInput.focus();
+        });
+    });
+
+    // --- Funções Auxiliares ---
+
+    function setButtonsDisabled(disabled) {
+        consultarEmbeddingBtn.disabled = disabled;
+    }
+
+    function showError(message) {
+        errorText.textContent = message;
+        error.style.display = 'block';
+        setTimeout(() => {
+            error.style.display = 'none';
+        }, 6000);
+    }
+
+    function hideAll() {
+        error.style.display = 'none';
+        results.classList.remove('show');
+        // Ocultar explicitamente as seções de dados estruturados
+        summarySection.style.display = 'none';
+        tableSection.style.display = 'none';
+        contextSection.style.display = 'none';
+    }
+
+    // --- Função de Consulta Principal (Adaptada para EMBEDDING) ---
+
+    async function consultar(mode) {
+        const pergunta = perguntaInput.value.trim();
+
+        if (!pergunta) {
+            showError('Por favor, digite uma pergunta.');
+            return;
+        }
+
+        hideAll();
+        loading.classList.add('show');
+        setButtonsDisabled(true);
+
+        // Endpoint fixo para EMBEDDING
+        const endpoint = '/consultar-embedding';
+        loadingText.textContent = `Analisando sua pergunta e buscando dados (EMBEDDING)...`;
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pergunta })
+            });
+
+            const data = await response.json();
+
+            // ✅ CORREÇÃO: Verificar se há erro OU se há resposta
+            if (data.error) {
+                showError(data.error);
+            } else if (data.resposta) {
+                // ✅ Adaptar os dados para o formato esperado pelo displayResults
+                displayResults({
+                    sucesso: true,
+                    resposta_natural: data.resposta,
+                    contexto_usado: data.contexto_usado,
+                    documentos_originais: data.documentos_originais,
+                    pergunta_original: pergunta
+                });
+            } else {
+                showError('Resposta inválida do servidor');
+            }
+
+        } catch (err) {
+            console.error('Erro:', err);
+            showError('Erro de conexão com o servidor');
+        } finally {
+            loading.classList.remove('show');
+            setButtonsDisabled(false);
+        }
+    }
+
+    // --- Função de Exibição de Resultados (Adaptada para EMBEDDING) ---
+
+    function displayResults(data) {
+
+        // 1. Resposta Natural e Cabeçalho
+        answerHeader.innerHTML = `💬 Resposta (EMBEDDING)`;
+        answerText.textContent = data.resposta_natural;
+
+        // 2. Contexto (Chunks Vetoriais)
+        contextContent.innerHTML = `
+                <h4>Chunks de Texto Utilizados</h4>
+                <pre>${data.contexto_vetorial || 'Nenhum contexto vetorial relevante encontrado.'}</pre>
+             `;
+        contextSection.style.display = 'block';
+
+        // 3. Ignora Resumo e Tabela (Específico para RAG SIMPLES)
+
+        // 4. Exibir resultados finais
+        results.classList.add('show');
+    }
+
+</script>
+</body>
+</html>
