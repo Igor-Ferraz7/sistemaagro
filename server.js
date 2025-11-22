@@ -10,6 +10,15 @@ const {
     getCategoryExamples
 } = require('./agents/agent1');
 
+
+const { 
+    listarPessoas, listarClassificacoes, 
+    excluirPessoaLogico, excluirClassificacaoLogico, excluirMovimentoLogico,
+    atualizarPessoa, atualizarClassificacao,
+    criarOuConsultarPessoa, criarOuConsultarClassificacao,
+    consultarMovimentos
+} = require('./agents/agent2');
+
 // Módulo de Persistência (BD)
 const {
     findOrCreatePessoa,
@@ -280,6 +289,125 @@ async function main() {
         }
     });
 }
+
+// --- ROTAS DA API DE GESTÃO (CRUD) ---
+
+// 1. PESSOAS
+app.get('/api/pessoas', async (req, res) => {
+    try {
+        const filtros = {
+            termo: req.query.termo,
+            tipo: req.query.tipo,
+            apenasAtivos: req.query.todos === 'true' // Regra C
+        };
+        const dados = await listarPessoas(filtros);
+        res.json(dados);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/pessoas', async (req, res) => {
+    try {
+        // Regra G: CREATE status oculto == ATIVO (Já é padrão no agent2 ou forçamos aqui)
+        const { documento, razaosocial, tipo, fantasia } = req.body;
+        const resultado = await criarOuConsultarPessoa(documento, razaosocial, tipo, fantasia);
+        res.json(resultado);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/pessoas/:id', async (req, res) => {
+    try {
+        // Regra H: UPDATE status oculto (não passamos status no body, mantemos o atual)
+        const id = parseInt(req.params.id);
+        const dados = req.body; 
+        delete dados.status; // Segurança: remove status se vier no body
+        const resultado = await atualizarPessoa(id, dados);
+        res.json(resultado);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/pessoas/:id', async (req, res) => {
+    try {
+        // Regra I: DELETE altera status == INATIVO
+        const id = parseInt(req.params.id);
+        await excluirPessoaLogico(id);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 2. CLASSIFICAÇÃO (Repete a lógica)
+app.get('/api/classificacoes', async (req, res) => {
+    try {
+        const filtros = {
+            termo: req.query.termo,
+            tipo: req.query.tipo,
+            apenasAtivos: req.query.todos === 'true'
+        };
+        const dados = await listarClassificacoes(filtros);
+        res.json(dados);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/classificacoes', async (req, res) => {
+    try {
+        const { descricao, tipo } = req.body;
+        const resultado = await criarOuConsultarClassificacao(descricao, tipo);
+        res.json(resultado);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/classificacoes/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const dados = req.body;
+        delete dados.status;
+        const resultado = await atualizarClassificacao(id, dados);
+        res.json(resultado);        
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/classificacoes/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        await excluirClassificacaoLogico(id);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message });}
+});
+
+app.get('/api/contas', async (req, res) => {
+    try {
+        // Mapeando os filtros do front para o back
+        const filtros = {};
+        
+        // Regra C: Se não pedir todos, traz apenas ativos (ou pendentes/pagos, mas não inativos)
+        if (req.query.todos !== 'true') {
+            filtros.status = 'PENDENTE'; // Ou remova essa linha se quiser trazer tudo exceto INATIVO
+        }
+        
+        // Nota: A busca por texto (termo) em movimentos é complexa (envolve joins). 
+        // Por simplicidade inicial, vamos filtrar apenas por status/tipo se houver.
+        if (req.query.tipo) filtros.tipo = req.query.tipo;
+
+        const dados = await consultarMovimentos(filtros);
+        
+        // Filtragem manual simples por termo (caso o usuário digite nome do fornecedor)
+        // Isso evita criar uma query complexa no agent2 agora.
+        let resultado = dados;
+        if (req.query.termo) {
+            const termo = req.query.termo.toLowerCase();
+            resultado = dados.filter(m => 
+                (m.numeronotafiscal && m.numeronotafiscal.includes(termo)) ||
+                (m.fornecedorCliente?.razaosocial && m.fornecedorCliente.razaosocial.toLowerCase().includes(termo))
+            );
+        }
+
+        res.json(resultado);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/contas/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        await excluirMovimentoLogico(id);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // Fechamento seguro da conexão com o BD ao sair
 process.on('SIGINT', async () => {

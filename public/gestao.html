@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Cadastros</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f9; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        /* Abas */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+        .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-weight: bold; color: #718096; }
+        .tab-btn.active { color: #3182ce; border-bottom: 2px solid #3182ce; margin-bottom: -2px; }
+
+        /* Filtros */
+        .filters { display: flex; gap: 10px; margin-bottom: 20px; background: #f7fafc; padding: 15px; border-radius: 6px; }
+        input, select { padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-search { background: #3182ce; }
+        .btn-all { background: #38a169; }
+        .btn-new { background: #805ad5; margin-left: auto; }
+        
+        /* Tabela */
+        table { width: 100%; border-collapse: collapse; }
+        th,td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #edf2f7; cursor: pointer; } /* Regra D: Indexação */
+        th:hover { background: #e2e8f0; }
+        
+        /* Ações */
+        .actions { display: flex; gap: 5px; }
+        .btn-edit { background: #ecc94b; color: #744210; padding: 4px 8px; font-size: 0.8rem; }
+        .btn-del { background: #e53e3e; color: white; padding: 4px 8px; font-size: 0.8rem; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 500px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>⚙️ Gestão de Cadastros</h1>
+        <a href="/" style="text-decoration: none;">⬅️ Voltar</a>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('pessoas')">👥 Pessoas</button>
+        <button class="tab-btn" onclick="switchTab('classificacao')">🏷️ Classificação</button>
+        <button class="tab-btn" onclick="switchTab('contas')">💰 Contas</button>
+    </div>
+
+    <div class="filters">
+        <input type="text" id="searchInput" placeholder="Buscar por nome, documento..." style="width: 300px;">
+        
+        <select id="typeFilter">
+            <option value="">Todos os Tipos</option>
+            </select>
+
+        <button class="btn btn-search" onclick="carregarDados(false)">🔍 Buscar</button>
+        <button class="btn btn-all" onclick="carregarDados(true)">📋 Listar Ativos</button>
+        
+        <button class="btn btn-new" onclick="abrirModal()">➕ Novo Registro</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr id="tableHeaders">
+                </tr>
+        </thead>
+        <tbody id="tableBody">
+            </tbody>
+    </table>
+</div>
+
+<div id="modalForm" class="modal">
+    <div class="modal-content">
+        <h2 id="modalTitle">Novo Registro</h2>
+        <form id="dynamicForm">
+            <input type="hidden" id="editId">
+            <div id="formFields"></div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" class="btn" style="background: #718096;" onclick="fecharModal()">Cancelar</button>
+                <button type="submit" class="btn" style="background: #38a169;">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="gestao.js"></script>
+</body>
+</html>

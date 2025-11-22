@@ -868,6 +868,90 @@ async function gerarRecomendacoesAutomaticas(dados) {
     }
 }
 
+
+async function listarPessoas(filtros = {}) {
+    const where = {};
+    
+    // Se não passar filtro nenhum ou pedir "TODOS", assume status ATIVO (Regra C)
+    if (Object.keys(filtros).length === 0 || filtros.apenasAtivos) {
+        where.status = 'ATIVO';
+    }
+
+    // Busca por mais de um elemento (Regra E)
+    if (filtros.termo) {
+        where.OR = [
+            { razaosocial: { contains: filtros.termo, mode: 'insensitive' } },
+            { documento: { contains: filtros.termo } }
+        ];
+    }
+
+    if (filtros.tipo) where.tipo = filtros.tipo;
+
+    return await prisma.pessoas.findMany({
+        where,
+        orderBy: { razaosocial: 'asc' }
+    });
+}
+
+/**
+ * Busca genérica de Classificações com filtros
+ */
+async function listarClassificacoes(filtros = {}) {
+    const where = {};
+    
+    if (Object.keys(filtros).length === 0 || filtros.apenasAtivos) {
+        where.status = 'ATIVA'; // Nota: no banco está ATIVA ou ATIVO? Padronize conforme seu DB
+    }
+
+    if (filtros.termo) {
+        where.descricao = { contains: filtros.termo, mode: 'insensitive' };
+    }
+    
+    if (filtros.tipo) where.tipo = filtros.tipo;
+
+    return await prisma.classificacao.findMany({
+        where,
+        orderBy: { descricao: 'asc' }
+    });
+}
+
+// ===== ATUALIZAÇÃO: EXCLUSÃO LÓGICA (Regra I) =====
+
+async function excluirPessoaLogico(id) {
+    try {
+        // Regra I: No DELETE altera campo STATUS == INATIVO
+        return await prisma.pessoas.update({
+            where: { idPessoas: parseInt(id) },
+            data: { status: 'INATIVO' }
+        });
+    } catch (error) {
+        throw new Error(`Erro na exclusão lógica: ${error.message}`);
+    }
+}
+
+async function excluirClassificacaoLogico(id) {
+    try {
+        return await prisma.classificacao.update({
+            where: { idClassificacao: parseInt(id) },
+            data: { status: 'INATIVO' }
+        });
+    } catch (error) {
+        throw new Error(`Erro na exclusão lógica: ${error.message}`);
+    }
+}
+
+async function excluirMovimentoLogico(id) {
+    try {
+        // Para contas, vamos considerar 'CANCELADO' ou 'INATIVO'
+        return await prisma.movimentoContas.update({
+            where: { idMovimentoContas: parseInt(id) },
+            data: { status: 'INATIVO' }
+        });
+    } catch (error) {
+        throw new Error(`Erro na exclusão lógica: ${error.message}`);
+    }
+}
+
 module.exports = {
     // Conexão com o banco
     connectDb,
@@ -905,6 +989,13 @@ module.exports = {
     analisarRiscoNotaFiscal,
     analisarPadroesTransacoes,
     gerarRecomendacoesAutomaticas,
+
+    // Listagens genéricas
+    listarPessoas,
+    listarClassificacoes,
+    excluirPessoaLogico,
+    excluirClassificacaoLogico,
+    excluirMovimentoLogico,
     
     // Constantes
     MODELO_GEMINI
