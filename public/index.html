@@ -3,458 +3,318 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extração e Lançamento de NF</title>
+    <title>Sistema Financeiro Inteligente</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --primary-ai: #3182ce;
+            --primary-admin: #805ad5;
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-light: #718096;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background-color: #ffffff;
-            color: #1a202c;
-            line-height: 1.5;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
         }
 
-        .container {
-            max-width: 800px;
+        .main-container {
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 50px;
-            position: relative;
-            /* Garante que o conteúdo do header não seja escondido pelos botões de navegação */
-            padding-top: 50px; /* Adiciona espaço para os botões de navegação */
-        }
-
-        /* NOVO CSS: Container para os botões de consulta */
-        .header-actions {
-            position: absolute;
-            top: 0;
-            right: 0;
-            display: flex;
-            gap: 10px; /* Espaço entre os botões */
-            align-items: center;
-        }
-
-        /* NOVO CSS: Estilo base para os botões de consulta */
-        .consultas-button {
+        /* Header */
+        .app-header {
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
             color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 15px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 8px;
+        }
+
+        .app-header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-header p { opacity: 0.8; margin-top: 5px; font-size: 0.95rem; }
+
+        /* Botão de Configuração no Header */
+        .config-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 10px;
             transition: background 0.3s;
         }
+        .config-btn:hover { background: rgba(255,255,255,0.2); }
 
-        /* NOVO CSS: Estilo específico para Consulta Simples */
-        .consultas-button.simple {
-            background: #3182ce;
-        }
-        .consultas-button.simple:hover {
-            background: #2c5282;
-        }
-
-        /* NOVO CSS: Estilo específico para Consulta Embedding */
-        .consultas-button.embedding {
-            background: #38a169; /* Verde */
-        }
-        .consultas-button.embedding:hover {
-            background: #276749;
-        }
-
-        /* --- ESTILOS ORIGINAIS CONTINUAM ABAIXO --- */
-
-        .title {
-            font-size: 2rem;
-            font-weight: 600;
-            color: #1a202c;
-            margin-bottom: 8px;
-        }
-
-        .subtitle {
-            font-size: 1rem;
-            color: #718096;
-            font-weight: 400;
-        }
-
-        /* O estilo original .consultas-button foi removido/substituído pela nova estrutura */
-
-        .upload-area {
-            border: 2px dashed #e2e8f0;
-            border-radius: 6px;
-            padding: 40px 20px;
-            text-align: center;
-            background: #f7fafc;
-            cursor: pointer;
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .upload-area:hover {
-            background: #edf2f7;
-        }
-
-        .custom-file-upload {
-            display: inline-block;
-            padding: 10px 15px;
-            cursor: pointer;
-            border: 1px solid #3498db;
-            border-radius: 4px;
-            color: #3498db;
-            transition: background-color 0.3s;
-        }
-
-        .custom-file-upload:hover {
-            background-color: #ecf0f1;
-        }
-
-        #file-name {
-            margin-left: 10px;
-            color: #718096;
-            font-size: 0.9rem;
-        }
-
-        #extract-button {
-            width: 100%;
-            background: #1a202c;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 16px 24px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 20px;
-        }
-
-        #extract-button:hover:not(:disabled) {
-            background: #2d3748;
-        }
-
-        #extract-button:disabled {
-            background: #a0aec0;
-            cursor: not-allowed;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 30px 20px;
-            margin-bottom: 30px;
-        }
-
-        .loading.show {
-            display: block;
-        }
-
-        .spinner {
-            width: 24px;
-            height: 24px;
-            border: 2px solid #e2e8f0;
-            border-left: 2px solid #3182ce;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .results-section {
-            display: none;
-        }
-
-        .results-section.show {
-            display: block;
-        }
-
-        .results-section h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1a202c;
-            margin-bottom: 20px;
-        }
-
-        .data-group {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 16px;
-        }
-
-        .data-group h3 {
-            color: #1a202c;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .json-header {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-bottom: none;
-            border-radius: 8px 8px 0 0;
-            padding: 12px 16px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: #4a5568;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .json-output, #jsonOutput {
-            background: #2d3748;
-            border: 1px solid #e2e8f0;
-            border-top: none;
-            padding: 20px;
-            font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            color: #e2e8f0;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            max-height: 500px;
-            overflow-y: auto;
-            border-radius: 0 0 8px 8px;
-        }
-
-        #copy-button {
-            background: #3182ce;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 12px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            font-weight: 500;
+        /* Layout Grid Principal */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
             margin-top: 10px;
         }
 
-        #copy-button:hover {
-            background: #2c5282;
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
-        .message {
-            padding: 12px 16px;
-            border-radius: 6px;
+        .card-header {
             margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-header h2 { font-size: 1.2rem; color: var(--text-main); font-weight: 600; }
+
+        .tag { font-size: 0.75rem; padding: 4px 8px; border-radius: 12px; font-weight: bold; text-transform: uppercase; }
+        .tag-ai { background: #ebf8ff; color: var(--primary-ai); }
+        .tag-admin { background: #faf5ff; color: var(--primary-admin); }
+
+        /* Upload Zone */
+        .upload-zone {
+            flex-grow: 1;
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            background: #f7fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            transition: all 0.3s;
+            cursor: pointer;
+            min-height: 250px;
+        }
+        .upload-zone:hover { border-color: var(--primary-ai); background: #ebf8ff; }
+        .upload-icon { font-size: 3rem; color: #a0aec0; margin-bottom: 15px; }
+
+        #extract-button {
+            width: 100%;
+            background: var(--text-main);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        #extract-button:disabled { background: #cbd5e0; cursor: not-allowed; }
+
+        /* Menu Lateral */
+        .menu-label { font-size: 0.85rem; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; display: block; }
+        .nav-button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: 500; transition: all 0.2s; border: 1px solid #e2e8f0; margin-bottom: 10px; background: white; color: var(--text-main); }
+        .nav-button:hover { transform: translateX(5px); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .nav-ai { border-left: 4px solid var(--primary-ai); }
+        .nav-ai:hover { background: #ebf8ff; }
+        .nav-admin { border-left: 4px solid var(--primary-admin); }
+        .nav-admin:hover { background: #faf5ff; }
+        .icon-box { font-size: 1.2rem; }
+
+        /* Resultados */
+        .results-container { margin-top: 25px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: none; }
+        .results-container.show { display: block; }
+        .db-analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .info-item { background: #f7fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .json-box { background: #1a202c; color: #68d391; padding: 20px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.9rem; overflow-x: auto; max-height: 400px; }
+
+        /* Loading */
+        .loading-overlay { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+        .loading-overlay.show { display: flex; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top: 4px solid var(--primary-ai); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Status */
+        .status-existe { color: #38a169; font-weight: bold; }
+        .status-criado { color: #3182ce; font-weight: bold; }
+        .status-nao-existe { color: #e53e3e; font-weight: bold; }
+        .movimento-success { background: #f0fff4; border: 1px solid #c6f6d5; color: #276749; padding: 15px; border-radius: 8px; text-align: center; margin-top: 20px; }
+        .movimento-fail { background: #fff5f5; border: 1px solid #fed7d7; color: #9b2c2c; padding: 15px; border-radius: 8px; text-align: center; margin-top: 20px; }
+
+        /* Modal de API Key */
+        .key-modal-overlay {
             display: none;
-            font-size: 0.9rem;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 1000;
+            justify-content: center; align-items: center; backdrop-filter: blur(5px);
         }
+        .key-modal { background: white; padding: 40px; border-radius: 16px; width: 90%; max-width: 500px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        .key-input { width: 100%; padding: 15px; margin: 20px 0; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; outline: none; }
+        .key-input:focus { border-color: #3182ce; }
+        .btn-save-key { background: #3182ce; color: white; border: none; padding: 15px 30px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; width: 100%; }
+        .btn-save-key:hover { background: #2c5282; }
 
-        .message.show {
-            display: block;
-        }
-
-        .success-message {
-            background: #f0fff4;
-            color: #22543d;
-            border: 1px solid #9ae6b4;
-        }
-
-        .error-message {
-            background: #fed7d7;
-            color: #c53030;
-            border: 1px solid #feb2b2;
-        }
-
-        .metadata {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 12px 16px;
-            font-size: 0.8rem;
-            color: #718096;
-            margin-top: 16px;
-        }
-
-        /* Estilos específicos para a análise do BD */
-        .db-analysis-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .db-item {
-            padding: 15px;
-            border: 1px solid #e2e8f0;
-            border-radius: 4px;
-            background-color: #f7fafc;
-        }
-
-        .db-item .label {
-            font-weight: bold;
-            color: #4a5568;
-            margin-bottom: 5px;
-            display: block;
-        }
-
-        .db-item .value {
-            font-size: 1.1rem;
-            word-break: break-all;
-        }
-
-        .status-nao-existe {
-            color: #c53030;
-            font-weight: bold;
-        }
-
-        .status-existe {
-            color: #38a169;
-            font-weight: bold;
-        }
-
-        .status-criado {
-            color: #3182ce;
-            font-weight: bold;
-        }
-
-        .movimento-success {
-            text-align: center;
-            padding: 20px;
-            background-color: #f0fff4;
-            border: 1px solid #9ae6b4;
-            border-radius: 6px;
-            margin-top: 20px;
-        }
-
-        .movimento-success h4 {
-            color: #38a169;
-            font-size: 1.4rem;
-            margin-bottom: 10px;
-        }
-
-        .movimento-fail {
-            text-align: center;
-            padding: 15px;
-            background-color: #fff5f5;
-            border: 1px solid #feb2b2;
-            border-radius: 6px;
-            margin-top: 20px;
-        }
-
-        .movimento-fail h4 {
-            color: #c53030;
-            font-size: 1.2rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px 16px;
-            }
-
-            .title {
-                font-size: 1.75rem;
-            }
-
-            .db-analysis-grid {
-                grid-template-columns: 1fr;
-            }
-
-            /* NOVO CSS: Garante que os botões fiquem empilhados em telas pequenas */
-            .header-actions {
-                position: static;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                margin-top: 15px;
-                width: 100%;
-            }
-            .consultas-button {
-                width: 100%;
-                justify-content: center;
-            }
-            .header {
-                padding-top: 0;
-            }
-        }
+        @media (max-width: 850px) { .dashboard-grid { grid-template-columns: 1fr; } .db-analysis-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="header">
-        <h1 class="title">Extração e Lançamento de NF</h1>
-        <p class="subtitle">Use a IA para extrair dados de notas fiscais em PDF, verificar no BD e lançar o Contas a Pagar.</p>
 
-        <div class="header-actions">
-            <a href="consultas_simples.html" class="consultas-button simple">
-                <span>📊</span> Consulta Simples
-            </a>
+<div class="main-container">
+    <header class="app-header">
+        <div>
+            <h1>📄 Sistema Financeiro Inteligente</h1>
+            <p>Extração de NFs, Banco Vetorial e Gestão Integrada</p>
+        </div>
+        <div style="text-align: right; font-size: 0.8rem; opacity: 0.8;">
+            <p>Gemini AI: 🟢 Online <button id="openConfigBtn" class="config-btn">⚙️ Alterar Chave</button></p>
+            <p style="margin-top: 5px;">PostgreSQL: 🟢 Conectado</p>
+        </div>
+    </header>
 
-            <a href="consultas_embedding.html" class="consultas-button embedding">
-                <span>🧠</span> Consulta Embedding
-            </a>
+    <div class="dashboard-grid">
+        <div class="card">
+            <div class="card-header">
+                <h2>🤖 Ingestão de Notas Fiscais</h2>
+                <span class="tag tag-ai">IA + OCR</span>
+            </div>
+            <div style="flex-grow: 1; display: flex; flex-direction: column;">
+                <p style="margin-bottom: 15px; color: var(--text-light);">Arraste o PDF ou clique para selecionar.</p>
+                <div class="upload-zone">
+                    <input type="file" id="invoice-file" accept=".pdf" style="display: none;">
+                    <label for="invoice-file" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;">
+                        <div class="upload-icon">☁️</div>
+                        <strong style="font-size: 1.1rem; color: var(--text-main)">Clique para enviar PDF</strong>
+                        <span id="file-name" style="margin-top: 10px; color: var(--text-light); font-size: 0.9rem;">Nenhum arquivo selecionado</span>
+                    </label>
+                </div>
+                <button id="extract-button" disabled><span>⚙️</span> PROCESSAR COM I.A.</button>
+                <div id="loading" class="loading-overlay"><div class="spinner"></div><p>Processando...</p></div>
+                <div id="successMessage" style="display:none; color:green; text-align:center; margin-top:10px;">Sucesso!</div>
+                <div id="errorMessage" style="display:none; color:red; text-align:center; margin-top:10px;"><span id="errorText"></span></div>
+            </div>
+        </div>
 
-            <a href="gestao.html" class="consultas-button gestao">
-                <span>⚙️</span> Gestão (CRUD)
-            </a>
+        <div>
+            <div class="card" style="height: auto; margin-bottom: 20px;">
+                <span class="menu-label">🧠 Consultas Inteligentes (RAG)</span>
+                <a href="consultas_simples.html" class="nav-button nav-ai"><span class="icon-box">📊</span><div><div>Consulta Estruturada</div><small style="color: #a0aec0;">SQL e Filtros</small></div></a>
+                <a href="consultas_embedding.html" class="nav-button nav-ai"><span class="icon-box">💬</span><div><div>Consulta Semântica</div><small style="color: #a0aec0;">Contexto Vetorial</small></div></a>
+            </div>
+            <div class="card" style="height: auto;">
+                <span class="menu-label">⚙️ Painel Administrativo</span>
+                <a href="gestao.html" class="nav-button nav-admin"><span class="icon-box">📝</span><div><div>Gestão de Cadastros</div><small style="color: #a0aec0;">CRUD Completo</small></div></a>
+            </div>
         </div>
     </div>
 
-    <div class="upload-area">
-        <input type="file" id="invoice-file" accept=".pdf" style="display: none;">
-        <label for="invoice-file" class="custom-file-upload">
-            <span>⬆️</span> Selecionar PDF
-        </label>
-        <span id="file-name">Nenhum arquivo escolhido</span>
-        <button id="extract-button" disabled><span>⚙️</span> EXTRAIR E LANÇAR</button>
-    </div>
-
-    <div id="loading" class="loading">
-        <div class="spinner"></div>
-        <p>Processando... Analisando PDF e Banco de Dados...</p>
-    </div>
-
-    <div id="successMessage" class="message success-message">
-        <strong>Sucesso!</strong> Dados extraídos.
-    </div>
-    <div id="errorMessage" class="message error-message">
-        <strong>Erro!</strong> <span id="errorText">Ocorreu um erro.</span>
-    </div>
-
-    <div id="resultsSection" class="results-section">
-        <h2>✔️ Resultados da Extração e Lançamento</h2>
-
-        <div id="dbAnalysisSection" class="data-group">
-            <h3>📊 Análise de Existência e Lançamento no BD</h3>
-            <div id="dbAnalysisContent">Aguardando dados...</div>
+    <div id="resultsSection" class="results-container">
+        <h2 style="margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">✔️ Resultado</h2>
+        <div id="dbAnalysisSection" style="margin-bottom: 30px;"><div id="dbAnalysisContent">Aguardando...</div></div>
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3>📄 JSON Extraído</h3>
+                <button id="copy-button" style="background: var(--primary-ai); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Copiar</button>
+            </div>
+            <pre id="jsonOutput" class="json-box"></pre>
         </div>
+        <p id="metadata" style="margin-top: 15px; font-size: 0.8rem; color: var(--text-light); text-align: right;"></p>
+    </div>
+</div>
 
-        <div class="data-group">
-            <h3>📄 Dados Extraídos (RAW JSON)</h3>
-            <pre id="jsonOutput" class="json-output"></pre>
-            <button id="copy-button">📋 Copiar JSON</button>
-        </div>
-
-        <p id="metadata" class="metadata"></p>
+<div id="apiKeyModal" class="key-modal-overlay">
+    <div class="key-modal">
+        <div style="font-size: 3rem; margin-bottom: 20px;">🔑</div>
+        <h2 style="margin-bottom: 10px; color: #2d3748;">Configuração de Chave</h2>
+        <p style="color: #718096;">Insira sua chave válida do Google Gemini para continuar.</p>
+        <input type="text" id="inputApiKey" class="key-input" placeholder="Ex: AIzaSy..." autocomplete="off">
+        <button id="btnSaveKey" class="btn-save-key">SALVAR CHAVE 🚀</button>
+        <button id="btnCloseModal" style="margin-top:10px; background:none; border:none; color:#718096; cursor:pointer; text-decoration:underline;">Fechar</button>
     </div>
 </div>
 
 <script>
+    // --- LÓGICA DA CHAVE DE API ---
+    const modal = document.getElementById('apiKeyModal');
+    const btnConfig = document.getElementById('openConfigBtn');
+    const btnSave = document.getElementById('btnSaveKey');
+    const btnClose = document.getElementById('btnCloseModal');
+    const inputKey = document.getElementById('inputApiKey');
+
+    // Abrir modal ao clicar no botão de configuração
+    btnConfig.addEventListener('click', () => {
+        modal.style.display = 'flex';
+        inputKey.focus();
+    });
+
+    // Fechar modal
+    btnClose.addEventListener('click', () => modal.style.display = 'none');
+
+    // Verificar chave ao carregar
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/test');
+            const data = await response.json();
+            if (!data.gemini_key_configured) {
+                modal.style.display = 'flex';
+            }
+        } catch (e) { console.error(e); }
+    });
+
+    // Salvar chave
+    btnSave.addEventListener('click', async () => {
+        const key = inputKey.value.trim();
+        if (!key) return alert('Chave inválida.');
+        
+        btnSave.textContent = 'Salvando...';
+        try {
+            const res = await fetch('/api/config/set-key', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ apiKey: key })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Chave atualizada! O sistema está pronto.');
+                location.reload();
+            } else {
+                alert('Erro: ' + data.error);
+            }
+        } catch (e) {
+            alert('Erro de conexão.');
+        } finally {
+            btnSave.textContent = 'SALVAR CHAVE 🚀';
+        }
+    });
+
+    // --- LÓGICA DO SISTEMA (MANTIDA) ---
     const fileInput = document.getElementById('invoice-file');
     const fileNameSpan = document.getElementById('file-name');
     const extractButton = document.getElementById('extract-button');
@@ -466,253 +326,67 @@
     const errorMessage = document.getElementById('errorMessage');
     const errorText = document.getElementById('errorText');
 
-    // --- Funções de UI ---
-
-    function showLoading() {
-        loading.classList.add('show');
-        extractButton.disabled = true;
-        extractButton.style.background = '#a0aec0';
-        extractButton.innerHTML = '<span>⏳</span> PROCESSANDO...';
-    }
-
-    function hideLoading() {
-        loading.classList.remove('show');
-        if (fileInput.files.length > 0) {
-            extractButton.disabled = false;
-        }
-        extractButton.style.background = '#1a202c';
-        extractButton.innerHTML = '<span>⚙️</span> EXTRAIR E LANÇAR';
-    }
-
-    function showSuccess(message) {
-        successMessage.innerHTML = message;
-        successMessage.classList.add('show');
-        setTimeout(() => successMessage.classList.remove('show'), 4000);
-    }
-
-    function showError(message) {
-        errorText.textContent = message;
-        errorMessage.classList.add('show');
-        setTimeout(() => errorMessage.classList.remove('show'), 6000);
-    }
-
-    function hideMessages() {
-        successMessage.classList.remove('show');
-        errorMessage.classList.remove('show');
-        resultsSection.classList.remove('show');
-    }
-
-    // --- Lógica de Display de Resultados ---
-
-    function formatCurrency(value) {
-        if (typeof value === 'string') {
-            value = parseFloat(value);
-        }
-        if (isNaN(value) || value === null) {
-            return 'R$ 0,00';
-        }
-        // Verificar se o valor já está no formato correto (sem necessidade de divisão por 100)
-        // Se o valor for maior que 100 e tiver casas decimais, provavelmente já está no formato correto
-        const reais = value > 100 && value % 1 !== 0 ? value : value / 100;
-        return reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
-
-    function getStatusClass(status) {
-        if (status === 'EXISTE') return 'status-existe';
-        if (status === 'CRIADO') return 'status-criado';
-        return 'status-nao-existe';
-    }
-
-    function getStatusText(status, id) {
-        if (status === 'EXISTE') return `EXISTE — ID: ${id}`;
-        if (status === 'CRIADO') return `NÃO EXISTE (CRIADO) — ID: ${id}`;
-        return 'NÃO EXISTE (FALHA)';
-    }
-
-    function displayDbAnalysis(analysis, extractedData) {
-        const contentDiv = document.getElementById('dbAnalysisContent');
-        let html = '';
-        let launchSuccess = false;
-
-        // FORNECEDOR E FATURADO (GRID)
-        html += '<div class="db-analysis-grid">';
-
-        // FORNECEDOR
-        const f = analysis.fornecedor;
-        const fDocLabel = f.documento && f.documento.length > 11 ? 'CNPJ' : 'DOCUMENTO';
-
-        html += `
-                <div class="db-item">
-                    <span class="label">FORNECEDOR:</span>
-                    <div class="value">${f.razaoSocial || extractedData.fornecedor.razao_social || 'N/A'}</div>
-                    <span class="label">${fDocLabel}:</span>
-                    <div class="value">${f.documento || extractedData.fornecedor.cnpj || 'N/A'}</div>
-                    <hr style="margin: 8px 0; border: 0; border-top: 1px solid #e2e8f0;">
-                    <span class="label">Status no BD:</span>
-                    <div class="value ${getStatusClass(f.status)}">${getStatusText(f.status, f.id)}</div>
-                </div>
-            `;
-
-        // FATURADO
-        const fa = analysis.faturado;
-        const faDocLabel = fa.documento && fa.documento.length > 11 ? 'CNPJ' : 'CPF';
-
-        html += `
-                <div class="db-item">
-                    <span class="label">FATURADO:</span>
-                    <div class="value">${fa.razaoSocial || extractedData.faturado.nome_completo || 'N/A'}</div>
-                    <span class="label">${faDocLabel}:</span>
-                    <div class="value">${fa.documento || extractedData.faturado.cpf || 'N/A'}</div>
-                    <hr style="margin: 8px 0; border: 0; border-top: 1px solid #e2e8f0;">
-                    <span class="label">Status no BD:</span>
-                    <div class="value ${getStatusClass(fa.status)}">${getStatusText(fa.status, fa.id)}</div>
-                </div>
-            `;
-        html += '</div>';
-
-        // NÚMERO DA NOTA FISCAL
-        html += `
-                <div class="db-item">
-                    <span class="label">NÚMERO DA NOTA FISCAL:</span>
-                    <div class="value">${extractedData.numero_nota_fiscal || 'N/A'}</div>
-                </div>
-            `;
-
-        // CLASSIFICAÇÃO (DESPESA)
-        const d = analysis.despesa;
-        html += `
-                <div class="db-item">
-                    <span class="label">CLASSIFICAÇÃO (DESPESA):</span>
-                    <div class="value">${extractedData.classificacao_despesa || 'N/A'}</div>
-                    <span class="label">Status no BD:</span>
-                    <div class="value ${getStatusClass(d.status)}">${getStatusText(d.status, d.id)}</div>
-                </div>
-            `;
-
-        // MOVIMENTO (Sessão de Sucesso/Falha)
-        const m = analysis.movimento;
-        if (m && m.status === 'CRIADO_SUCESSO') {
-            launchSuccess = true;
-            html += `
-                    <div class="movimento-success">
-                        <h4>✅ REGISTRO FOI LANÇADO COM SUCESSO.</h4>
-                        <p>Movimento ID: ${m.id} | Parcela ID: ${m.parcelaId} | Valor Total NF: ${formatCurrency(extractedData.valor_total)}</p>
-                    </div>
-                `;
-        } else if (m) {
-            html += `
-                    <div class="movimento-fail">
-                        <h4>❌ FALHA NO LANÇAMENTO DO REGISTRO:</h4>
-                        <p>${m.message}</p>
-                    </div>
-                `;
-        }
-
-        contentDiv.innerHTML = html;
-
-        // Atualiza a mensagem principal no topo (5. INFORMAR AO USUÁRIO QUE REGISTRO FOI LANÇADO COM SUCESSO)
-        if (launchSuccess) {
-            showSuccess('<strong>Sucesso!</strong> Dados extraídos e **Registro de Contas a Pagar Lançado**!');
-        } else {
-            showSuccess('<strong>Atenção!</strong> Dados extraídos, mas houve um problema no lançamento do Movimento. Verifique os IDs de dependência.');
-        }
-    }
-
+    function showLoading() { loading.classList.add('show'); extractButton.disabled = true; extractButton.style.opacity = '0.5'; extractButton.innerHTML = '<span>⏳</span> PROCESSANDO...'; }
+    function hideLoading() { loading.classList.remove('show'); if (fileInput.files.length > 0) { extractButton.disabled = false; extractButton.style.opacity = '1'; } extractButton.innerHTML = '<span>⚙️</span> PROCESSAR COM I.A.'; }
+    function showSuccess(msg) { successMessage.innerHTML = msg; successMessage.style.display = 'block'; setTimeout(() => successMessage.style.display = 'none', 5000); }
+    function showError(msg) { errorText.textContent = msg; errorMessage.style.display = 'block'; setTimeout(() => errorMessage.style.display = 'none', 6000); }
+    function hideMessages() { successMessage.style.display = 'none'; errorMessage.style.display = 'none'; resultsSection.classList.remove('show'); }
+    function formatCurrency(v) { if(typeof v === 'string') v=parseFloat(v); if(isNaN(v)) return 'R$ 0,00'; return (v>100 && v%1!==0 ? v : v/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+    
     function displayResults(result) {
-        hideLoading();
-        hideMessages();
+        hideLoading(); hideMessages();
+        if (!result.data) return showError('Erro na estrutura de resposta.');
+        
+        // Renderiza análise do BD
+        let html = '<div class="db-analysis-grid">';
+        const f = result.dbAnalysis.fornecedor || {};
+        const fa = result.dbAnalysis.faturado || {};
+        const d = result.dbAnalysis.despesa || {};
+        const m = result.dbAnalysis.movimento || {};
 
-        if (result.dbAnalysis && result.data) {
-            displayDbAnalysis(result.dbAnalysis, result.data);
+        html += `<div class="info-item"><strong>FORNECEDOR</strong><br>${f.razaoSocial || 'N/A'}<br><small>${f.documento || 'N/A'}</small><br><span class="${f.status === 'EXISTE' ? 'status-existe' : 'status-criado'}">${f.status}</span></div>`;
+        html += `<div class="info-item"><strong>FATURADO</strong><br>${fa.razaoSocial || 'N/A'}<br><small>${fa.documento || 'N/A'}</small><br><span class="${fa.status === 'EXISTE' ? 'status-existe' : 'status-criado'}">${fa.status}</span></div>`;
+        html += '</div>'; // end grid
+
+        html += `<div class="info-item"><strong>Classificação:</strong> ${result.data.classificacao_despesa} <span class="${d.status==='EXISTE'?'status-existe':'status-criado'}">(${d.status})</span></div>`;
+
+        if (m.status === 'CRIADO_SUCESSO') {
+            html += `<div class="movimento-success"><h4>✅ Lançamento Realizado!</h4><p>ID: ${m.id} | Valor: ${formatCurrency(result.data.valor_total)}</p></div>`;
+            showSuccess('Processamento concluído com sucesso!');
         } else {
-            showError('Estrutura de resposta inválida.');
+            html += `<div class="movimento-fail"><h4>❌ Falha no Lançamento</h4><p>${m.message || 'Erro desconhecido'}</p></div>`;
+            showSuccess('Atenção: Dados extraídos mas não salvos.');
         }
 
+        document.getElementById('dbAnalysisContent').innerHTML = html;
         jsonOutput.textContent = JSON.stringify(result.data, null, 2);
-
-        const metadata = document.getElementById('metadata');
-        metadata.innerHTML = `
-                <strong>Informações do Processamento:</strong><br>
-                Arquivo: ${result.metadata.filename} |
-                Tamanho: ${(result.metadata.fileSize / 1024).toFixed(1)} KB |
-                Tempo: ${result.metadata.processingTime} |
-                Processado em: ${new Date(result.metadata.timestamp).toLocaleString('pt-BR')}
-            `;
-
+        document.getElementById('metadata').innerText = `Tempo: ${result.metadata.processingTime}`;
         resultsSection.classList.add('show');
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
     }
-
-    // --- Event Handlers ---
 
     fileInput.addEventListener('change', () => {
-        hideMessages();
-        if (fileInput.files.length > 0) {
+        if(fileInput.files.length > 0) {
             fileNameSpan.textContent = fileInput.files[0].name;
+            fileNameSpan.style.color = '#2d3748'; fileNameSpan.style.fontWeight = 'bold';
             extractButton.disabled = false;
-        } else {
-            fileNameSpan.textContent = 'Nenhum arquivo escolhido';
-            extractButton.disabled = true;
         }
     });
 
     extractButton.addEventListener('click', async () => {
-        const file = fileInput.files[0];
-        if (!file) {
-            showError('Por favor, selecione um arquivo.');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('invoice', file);
-
-        hideMessages();
-        showLoading();
-
+        if(!fileInput.files[0]) return showError('Selecione um arquivo.');
+        const formData = new FormData(); formData.append('invoice', fileInput.files[0]);
+        hideMessages(); showLoading();
         try {
-            const response = await fetch('/extract-data', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                displayResults(data);
-            } else {
-                showError(data.error || 'Erro desconhecido na extração.');
-                hideLoading();
-            }
-
-        } catch (error) {
-            console.error('Erro na requisição:', error);
-            showError('Erro ao se conectar com o servidor ou problema de rede.');
-            hideLoading();
-        }
+            const res = await fetch('/extract-data', { method: 'POST', body: formData });
+            const data = await res.json();
+            if(res.ok) displayResults(data);
+            else { showError(data.error || 'Erro desconhecido.'); hideLoading(); }
+        } catch(e) { console.error(e); showError('Erro de conexão.'); hideLoading(); }
     });
 
-    copyButton.addEventListener('click', () => {
-        navigator.clipboard.writeText(jsonOutput.textContent)
-            .then(() => {
-                alert('JSON copiado para a área de transferência!');
-            })
-            .catch(err => {
-                console.error('Erro ao copiar:', err);
-                alert('Falha ao copiar o JSON.');
-            });
-    });
-
-
-    // Test server connection on load
-    fetch('/test')
-        .then(response => response.json())
-        .then(data => {
-            if (!data.gemini_key_configured) {
-                showError('API do Gemini não configurada. Configure a chave no arquivo .env do servidor.');
-            }
-        })
-        .catch(() => {
-            showError('Falha ao conectar com o servidor Node.js. Certifique-se de que está rodando.');
-        });
+    copyButton.addEventListener('click', () => navigator.clipboard.writeText(jsonOutput.textContent).then(() => alert('Copiado!')));
 </script>
+
 </body>
 </html>

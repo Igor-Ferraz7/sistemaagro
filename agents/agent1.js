@@ -1,9 +1,8 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { TEXT_MODEL } = require('../geminiConfig');
 
-const MODELO_GEMINI = "gemini-2.5-pro";
-
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// ⚠️ REMOVIDO DAQUI: A inicialização global do genAI foi removida para evitar erro de chave vazia no boot.
+// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const CATEGORIAS_DESPESAS = [
     'INSUMOS AGRÍCOLAS',
@@ -17,29 +16,20 @@ const CATEGORIAS_DESPESAS = [
     'INVESTIMENTOS'
 ];
 
-/**
- * Função principal para processar um buffer de PDF diretamente com o Gemini.
- * @param {Buffer} pdfBuffer - O buffer de dados do arquivo PDF.
- * @returns {Promise<Object>} Os dados extraídos no formato JSON.
- */
-/**
- * Função auxiliar para aguardar um tempo específico
- * @param {number} ms - Tempo em milissegundos para aguardar
- * @returns {Promise<void>}
- */
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Função principal para processar um buffer de PDF diretamente com o Gemini.
- * Implementa retry com backoff exponencial para lidar com erros de sobrecarga.
- * @param {Buffer} pdfBuffer - O buffer de dados do arquivo PDF.
- * @returns {Promise<Object>} Os dados extraídos no formato JSON.
- */
 async function processPDFWithGemini(pdfBuffer) {
     const MAX_RETRIES = 3;
-    const INITIAL_BACKOFF_MS = 1000; // 1 segundo
+    const INITIAL_BACKOFF_MS = 1000; 
     let retryCount = 0;
     let lastError = null;
+
+    // ✅ CORREÇÃO 2: Inicialização movida para DENTRO da função.
+    // Assim ele pega a chave atualizada (process.env.GEMINI_API_KEY) que você digitou na janela.
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error("API Key do Gemini não configurada. Configure via interface ao iniciar.");
+    }
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
     while (retryCount <= MAX_RETRIES) {
         try {
@@ -49,11 +39,11 @@ async function processPDFWithGemini(pdfBuffer) {
                 await sleep(backoffTime);
             }
             
-            console.log(`🤖 Processando PDF diretamente com Gemini (${MODELO_GEMINI})...`);
+            console.log(`🤖 Processando PDF diretamente com Gemini (${TEXT_MODEL})...`);
 
-            const model = genAI.getGenerativeModel({ model: MODELO_GEMINI });
+            const model = genAI.getGenerativeModel({ model: TEXT_MODEL });
 
-            // O prompt
+            // --- SEU PROMPT ORIGINAL MANTIDO INTACTO ---
             const prompt = `Você é um especialista em análise de notas fiscais brasileiras (NFe). Analise este documento PDF de uma nota fiscal e extraia EXATAMENTE os seguintes dados em formato JSON válido.
 
 INSTRUÇÕES CRÍTICAS:
@@ -131,25 +121,22 @@ RESPOSTA: Retorne APENAS o JSON válido, sem comentários, explicações ou form
             lastError = error;
             retryCount++;
             
-            // Verificar se o erro é de sobrecarga do serviço (503)
             const isServiceOverloaded = error.message && (
-                error.message.includes('503 Service Unavailable') || 
-                error.message.includes('The model is overloaded')
+                error.message.includes('503') || 
+                error.message.includes('429') || 
+                error.message.includes('overloaded')
             );
             
             if (isServiceOverloaded && retryCount <= MAX_RETRIES) {
                 console.log(`⚠️ Gemini API sobrecarregada. Tentando novamente (${retryCount}/${MAX_RETRIES})...`);
-                // Continua para a próxima iteração e tenta novamente após o backoff
             } else {
-                // Se não for erro de sobrecarga ou já excedeu as tentativas, interrompe
                 console.error('❌ Erro no processamento Gemini:', error);
                 break;
             }
         }
     }
     
-    // Se chegou aqui, todas as tentativas falharam
-    throw new Error(`Falha no processamento IA após ${retryCount} tentativas: ${lastError.message}`);
+    throw new Error(`Falha no processamento IA após ${retryCount} tentativas: ${lastError ? lastError.message : 'Erro desconhecido'}`);
 }
 
 function getCategoryExamples(category) {
@@ -170,7 +157,7 @@ function getCategoryExamples(category) {
 
 module.exports = {
     processPDFWithGemini,
-    MODELO_GEMINI,
+    TEXT_MODEL,
     CATEGORIAS_DESPESAS,
     getCategoryExamples
 };

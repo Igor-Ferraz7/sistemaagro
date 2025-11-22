@@ -2,40 +2,42 @@
 const { PrismaClient } = require('@prisma/client');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// O modelo recomendado do Google para embeddings de alta qualidade.
-const MODELO_EMBEDDING = "text-embedding-004";
+const { EMBEDDING_MODEL } = require('../geminiConfig');
 const prisma = new PrismaClient();
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
  * Cria o vetor (embedding) para uma string de texto.
- * ATENÇÃO: Esta função é reutilizada pelo agent_rag_embedding.js.
- * @param {string} texto - O chunk de texto a ser vetorizado.
- * @returns {Promise<number[]>} O vetor (array de floats).
  */
 async function criarEmbedding(texto) {
     try {
-        const model = genAI.getGenerativeModel({ model: MODELO_EMBEDDING });
+        // 1. Se não tiver chave configurada (vazia/null), retorna null silenciosamente
+        if (!process.env.GEMINI_API_KEY) return null;
+        
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
 
         const result = await model.embedContent({
-            content: {
-                parts: [{ text: texto }],
-                role: "user"
-            }
+            content: { parts: [{ text: texto }], role: "user" }
         });
 
         return result.embedding.values;
 
     } catch (error) {
-        console.error('❌ Erro ao criar embedding:', error.message);
-        console.error('Detalhes completos:', error);
-        throw new Error('Falha na criação do embedding pela API do Gemini.');
+        // 2. TRATAMENTO ESPECÍFICO: Se a chave existir mas for INVÁLIDA (Erro 400 do Google)
+        if (error.message.includes('API_KEY_INVALID') || error.message.includes('400 Bad Request')) {
+            // Não poluímos o log com erro vermelho, apenas um aviso amarelo
+            console.warn('   ⚠️  Aviso: A chave de API atual é inválida ou foi rejeitada pelo Google. Ignorando este embedding.');
+            return null; 
+        }
+
+        // Outros erros (conexão, limite, etc) continuam sendo logados
+        console.error('   ❌ Erro ao criar embedding:', error.message);
+        return null;
     }
 }
 
 /**
- * 🚀 Inicia o processo de ingestão de dados e criação de índices vetoriais.
- * Faz a limpeza e indexação de todos os movimentos de contas.
+ * 🚀 Inicia o processo de ingestão de dados.
  */
 async function ingestaoInicial() {
     try {
@@ -43,19 +45,20 @@ async function ingestaoInicial() {
         console.log('  🚀 INICIANDO INGESTÃO DE EMBEDDINGS');
         console.log('======================================');
 
-        // Garante que o índice esteja limpo antes de reindexar
+        if (!process.env.GEMINI_API_KEY) {
+            console.log('⚠️ API Key não detectada. A ingestão será ignorada até a configuração.');
+            console.log('======================================');
+            return;
+        }
+
+        // Limpa índice anterior
         await prisma.$executeRaw`DELETE FROM "DocumentoContexto"`;
         console.log('  -> Índice vetorial anterior limpo.');
 
-        // 1. Puxar todos os Movimentos com as informações de contexto necessárias
         const movimentos = await prisma.movimentoContas.findMany({
             include: {
                 fornecedorCliente: { select: { razaosocial: true } },
-                classificacoes: {
-                    include: {
-                        classificacao: { select: { descricao: true } }
-                    }
-                }
+                classificacoes: { include: { classificacao: { select: { descricao: true } } } }
             }
         });
 
@@ -66,43 +69,32 @@ async function ingestaoInicial() {
 
         console.log(`📝 Processando ${movimentos.length} movimentos...`);
 
-        // Processar em lotes para evitar sobrecarga
-        const BATCH_SIZE = 10;
         let processados = 0;
+        let falhasChave = 0;
 
-        for (let i = 0; i < movimentos.length; i += BATCH_SIZE) {
-            const lote = movimentos.slice(i, i + BATCH_SIZE);
+        for (const movimento of movimentos) {
+            try {
+                // Se já falhou muitas vezes por chave inválida, aborta o loop para não travar o boot
+                if (falhasChave > 2) {
+                    console.log('⚠️ Ingestão abortada: Chave de API inválida. Configure via interface.');
+                    break;
+                }
 
-            const promessas = lote.map(async (movimento) => {
-                try {
-                    console.log(`\n📝 Processando movimento ${movimento.idMovimentoContas}:`);
-                    console.log(`   NF: ${movimento.numeronotafiscal}`);
-                    console.log(`   Fornecedor: ${movimento.fornecedorCliente.razaosocial}`);
+                const classificacaoNomes = movimento.classificacoes.map(c => c.classificacao.descricao).join(', ');
+                
+                const texto_contexto = `
+                    Movimento ID: ${movimento.idMovimentoContas}. 
+                    Nota Fiscal: ${movimento.numeronotafiscal || 'N/A'}. 
+                    Fornecedor: ${movimento.fornecedorCliente ? movimento.fornecedorCliente.razaosocial : 'N/A'}. 
+                    Categoria(s): ${classificacaoNomes}. 
+                    Valor Total: ${parseFloat(movimento.valortotal).toFixed(2)}. 
+                    Descrição: ${movimento.descricao}.
+                    Data de Emissão: ${new Date(movimento.datemissao).toISOString().split('T')[0]}.
+                `.trim();
 
-                    // Extrai nomes de classificação
-                    const classificacaoNomes = movimento.classificacoes
-                        .map(c => c.classificacao.descricao)
-                        .join(', ');
-
-                    // 2. Criar o chunk de texto com alto contexto semântico
-                    const texto_contexto = `
-                        Movimento ID: ${movimento.idMovimentoContas}. 
-                        Nota Fiscal: ${movimento.numeronotafiscal || 'N/A'}. 
-                        Fornecedor: ${movimento.fornecedorCliente.razaosocial}. 
-                        Categoria(s): ${classificacaoNomes}. 
-                        Valor Total: ${movimento.valortotal.toFixed(2)}. 
-                        Descrição dos Itens: ${movimento.descricao}.
-                        Data de Emissão: ${movimento.datemissao.toISOString().split('T')[0]}.
-                    `.trim();
-
-                    console.log(`   Texto gerado (${texto_contexto.length} chars)`);
-                    console.log(`   Preview: ${texto_contexto.substring(0, 100)}...`);
-
-                    // 3. Gerar o vetor (embedding)
-                    const embedding = await criarEmbedding(texto_contexto);
-                    console.log(`   Embedding gerado (${embedding.length} dimensões)`);
-
-                    // 4. Salvar no índice vetorial usando SQL Raw (pgvector não é totalmente suportado pelo Prisma)
+                const embedding = await criarEmbedding(texto_contexto);
+                
+                if (embedding) {
                     const embeddingString = `[${embedding.join(',')}]`;
                     const metadataJson = JSON.stringify({
                         movimento_id: movimento.idMovimentoContas,
@@ -112,46 +104,28 @@ async function ingestaoInicial() {
 
                     await prisma.$executeRaw`
                         INSERT INTO "DocumentoContexto" (texto, embedding, metadata, "createdAt", "updatedAt")
-                        VALUES (
-                            ${texto_contexto},
-                            ${embeddingString}::vector,
-                            ${metadataJson}::jsonb,
-                            NOW(),
-                            NOW()
-                        )
+                        VALUES (${texto_contexto}, ${embeddingString}::vector, ${metadataJson}::jsonb, NOW(), NOW())
                     `;
-
-                    console.log(`   ✅ Indexado com sucesso`);
-
                     processados++;
-                    if (processados % 10 === 0) {
-                        console.log(`\n  ⏳ Processados ${processados}/${movimentos.length} movimentos...`);
-                    }
-                } catch (error) {
-                    console.error(`   ❌ ERRO ao processar movimento ${movimento.idMovimentoContas}:`);
-                    console.error(`   Mensagem: ${error.message}`);
-                    console.error(`   Stack: ${error.stack}`);
+                } else {
+                    // Se retornou null, conta como falha potencial de chave
+                    falhasChave++;
                 }
-            });
 
-            await Promise.all(promessas);
+            } catch (error) {
+                console.error(`   ❌ ERRO movimento ${movimento.idMovimentoContas}:`, error.message);
+            }
         }
 
         console.log('\n======================================');
-        console.log(`✅ Indexação de ${processados} documentos concluída.`);
+        console.log(`✅ Indexação concluída: ${processados} documentos processados.`);
         console.log('======================================');
 
     } catch (e) {
-        console.error('❌ ERRO CRÍTICO NA INGESTÃO DE EMBEDDINGS:', e);
-        console.error('Stack completo:', e.stack);
-        console.log('\nCERTIFIQUE-SE DE TER EXECUTADO: npm install @prisma/client && npx prisma migrate dev');
-        throw new Error('Falha na Ingestão de Embeddings. Verifique o console para detalhes.');
+        console.error('❌ ERRO CRÍTICO NA INGESTÃO:', e.message);
     } finally {
         await prisma.$disconnect();
     }
 }
 
-module.exports = {
-    criarEmbedding,
-    ingestaoInicial
-};
+module.exports = { criarEmbedding, ingestaoInicial };

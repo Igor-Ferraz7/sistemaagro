@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 const express = require('express');
 const multer = require('multer');
 require('dotenv').config();
@@ -50,6 +53,51 @@ app.get('/test', (req, res) => {
         service: 'Extractor NF API',
         gemini_key_configured: !!process.env.GEMINI_API_KEY
     });
+});
+
+app.post('/api/config/set-key', async (req, res) => {
+    try {
+        const { apiKey } = req.body;
+
+        if (!apiKey || apiKey.trim() === '') {
+            return res.status(400).json({ success: false, error: 'Chave inválida.' });
+        }
+
+        // 1. Atualiza na memória imediatamente
+        process.env.GEMINI_API_KEY = apiKey.trim();
+
+        // 2. Tenta atualizar o arquivo .env para persistência
+        const envPath = path.join(__dirname, '.env');
+        let envContent = '';
+
+        if (fs.existsSync(envPath)) {
+            envContent = fs.readFileSync(envPath, 'utf8');
+        }
+
+        // Regex para substituir ou adicionar a chave
+        const keyRegex = /^GEMINI_API_KEY=.*$/m;
+
+        if (keyRegex.test(envContent)) {
+            envContent = envContent.replace(keyRegex, `GEMINI_API_KEY=${apiKey.trim()}`);
+        } else {
+            envContent += `\nGEMINI_API_KEY=${apiKey.trim()}`;
+        }
+
+        fs.writeFileSync(envPath, envContent);
+
+        console.log('🔑 API Key atualizada via Interface Gráfica.');
+
+        // Força a reinicialização das instâncias do Gemini nos agentes (se necessário, ou apenas confia no process.env)
+        // Nota: Como os agentes leem process.env na hora da execução ou instanciação, 
+        // pode ser necessário reiniciar o servidor para alguns casos, mas para o fluxo atual vai funcionar 
+        // se a instância for criada dentro da função de chamada.
+
+        res.json({ success: true });
+
+    } catch (error) {
+        console.error('Erro ao salvar chave:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // ------------------------------------------
@@ -144,7 +192,7 @@ app.post('/extract-data', upload.single('invoice'), async (req, res) => {
                 descricao_produtos: "Dados temporários devido à indisponibilidade do serviço Gemini",
                 quantidade_parcelas: 1,
                 data_vencimento: new Date().toISOString().split('T')[0],
-                valor_total: req.body.valor_total || 0,
+                valor_total: req.body.valor_total || 100,
                 classificacao_despesa: req.body.classificacao || "ADMINISTRATIVAS"
             };
         }
