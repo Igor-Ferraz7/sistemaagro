@@ -17,7 +17,7 @@ const {
 const { 
     listarPessoas, listarClassificacoes, 
     excluirPessoaLogico, excluirClassificacaoLogico, excluirMovimentoLogico,
-    atualizarPessoa, atualizarClassificacao,
+    atualizarPessoa, atualizarClassificacao, atualizarMovimento,
     criarOuConsultarPessoa, criarOuConsultarClassificacao,
     consultarMovimentos
 } = require('./agents/agent2');
@@ -454,6 +454,67 @@ app.delete('/api/contas/:id', async (req, res) => {
         const id = parseInt(req.params.id);
         await excluirMovimentoLogico(id);
         res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 3. ROTAS PARA CRIAR E EDITAR CONTAS (MOVIMENTOS)
+app.post('/api/contas', async (req, res) => {
+    try {
+        // Recebe os dados do formulário
+        const { numeronotafiscal, valortotal, datemissao, descricao, idFornecedor, idFaturado, idClassificacao } = req.body;
+
+        // Prepara o objeto no formato que a função 'createMovimentoEParcela' espera (similar ao do OCR)
+        // Nota: A função divide por 100, então multiplicamos por 100 aqui para compensar
+        const dadosFormatados = {
+            numero_nota_fiscal: numeronotafiscal,
+            data_emissao: datemissao,
+            data_vencimento: datemissao, // Simplificação: Vencimento = Emissão no cadastro manual rápido
+            valor_total: parseFloat(valortotal) * 100, // Envia em centavos
+            descricao_produtos: descricao,
+            quantidade_parcelas: 1
+        };
+
+        const resultado = await createMovimentoEParcela(
+            dadosFormatados, 
+            parseInt(idFornecedor), 
+            parseInt(idFaturado), 
+            parseInt(idClassificacao)
+        );
+        
+        // Gatilho de Re-indexação (RAG) para o novo registro
+        ingestaoInicial().catch(console.error);
+
+        res.json(resultado);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/contas/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { numeronotafiscal, valortotal, datemissao, descricao, status } = req.body;
+
+        // Monta objeto de atualização simples
+        const dadosUpdate = {
+            numeronotafiscal,
+            datemissao: new Date(datemissao),
+            valortotal: parseFloat(valortotal), // No update direto do Prisma, enviamos o valor real (float)
+            descricao,
+            status // Permite alterar status (PENDENTE/PAGO)
+        };
+
+        // Remove campos undefined/vazios
+        Object.keys(dadosUpdate).forEach(key => dadosUpdate[key] === undefined && delete dadosUpdate[key]);
+
+        const resultado = await consultarMovimentos(); // Apenas para pegar o import, usamos prisma direto no agent2 na verdade
+        // Vamos usar a função do agent2 exportada: atualizarMovimento
+        // Precisamos garantir que ela está importada no topo do server.js. 
+        // Vou assumir que você importou 'atualizarMovimento' no topo junto com as outras.
+        
+        // Caso não tenha importado, aqui vai uma chamada direta via prisma se necessário, 
+        // mas o ideal é usar a função do agent2:
+        const upd = await atualizarMovimento(id, dadosUpdate);
+        
+        res.json(upd);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
