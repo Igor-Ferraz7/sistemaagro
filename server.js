@@ -458,9 +458,65 @@ app.delete('/api/contas/:id', async (req, res) => {
 });
 
 // Fechamento seguro da conexão com o BD ao sair
+function limparChaveEnv() {
+    try {
+        const envPath = path.join(__dirname, '.env');
+        if (fs.existsSync(envPath)) {
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            
+            // Regex para remover a linha da chave
+            const keyRegex = /^GEMINI_API_KEY=.*(\r\n|\n|\r)?/gm;
+            
+            if (keyRegex.test(envContent)) {
+                const newContent = envContent.replace(keyRegex, '');
+                fs.writeFileSync(envPath, newContent.trim());
+                console.log('🔒 API Key removida do arquivo .env com sucesso.');
+                return true;
+            }
+        }
+    } catch (e) {
+        console.error('⚠️ Erro ao tentar limpar a API Key:', e.message);
+    }
+    return false;
+}
+
+// --- NOVA ROTA: CHAMADA PELO NAVEGADOR AO FECHAR ---
+app.post('/api/cleanup', (req, res) => {
+    limparChaveEnv();
+    // Não precisamos desconectar o banco aqui, pois o servidor continua rodando
+    // apenas limpamos a chave para a próxima requisição falhar se não reautenticar
+    process.env.GEMINI_API_KEY = ""; // Limpa da memória também
+    console.log('🧹 Limpeza solicitada pelo fechamento da aba.');
+    res.sendStatus(200);
+});
+
+// Fechamento seguro pelo Terminal (Ctrl + C)
 process.on('SIGINT', async () => {
+    console.log('\n🛑 Encerrando aplicação...');
+
+    // 1. Remover a API Key do arquivo .env (Segurança)
+    try {
+        const envPath = path.join(__dirname, '.env');
+        if (fs.existsSync(envPath)) {
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            
+            // Regex para encontrar e remover a linha da chave (e a quebra de linha)
+            const keyRegex = /^GEMINI_API_KEY=.*(\r\n|\n|\r)?/gm;
+            
+            if (keyRegex.test(envContent)) {
+                const newContent = envContent.replace(keyRegex, '');
+                fs.writeFileSync(envPath, newContent.trim());
+                console.log('🔒 API Key removida do arquivo .env com sucesso.');
+            }
+        }
+    } catch (e) {
+        console.error('⚠️ Erro ao tentar limpar a API Key:', e.message);
+    }
+
+    // 2. Fechar conexão com o Banco
     await disconnectDb();
-    console.log('🛑 Servidor encerrado. Conexão com o BD fechada.');
+    console.log('👋 Conexão com o BD fechada. Até logo!');
+    
     process.exit(0);
 });
 

@@ -171,10 +171,10 @@
 
         /* Modal de API Key */
         .key-modal-overlay {
-            display: none;
+            display: none; /* Controlado via JS */
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8); z-index: 1000;
-            justify-content: center; align-items: center; backdrop-filter: blur(5px);
+            background: rgba(0, 0, 0, 0.9); z-index: 1000;
+            justify-content: center; align-items: center; backdrop-filter: blur(8px);
         }
         .key-modal { background: white; padding: 40px; border-radius: 16px; width: 90%; max-width: 500px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
         .key-input { width: 100%; padding: 15px; margin: 20px 0; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; outline: none; }
@@ -256,7 +256,7 @@
         <p style="color: #718096;">Insira sua chave válida do Google Gemini para continuar.</p>
         <input type="text" id="inputApiKey" class="key-input" placeholder="Ex: AIzaSy..." autocomplete="off">
         <button id="btnSaveKey" class="btn-save-key">SALVAR CHAVE 🚀</button>
-        <button id="btnCloseModal" style="margin-top:10px; background:none; border:none; color:#718096; cursor:pointer; text-decoration:underline;">Fechar</button>
+        <button id="btnCloseModal" style="margin-top:15px; background:none; border:none; color:#718096; cursor:pointer; text-decoration:underline; display:none;">Usar Chave Salva (Fechar)</button>
     </div>
 </div>
 
@@ -268,32 +268,47 @@
     const btnClose = document.getElementById('btnCloseModal');
     const inputKey = document.getElementById('inputApiKey');
 
-    // Abrir modal ao clicar no botão de configuração
-    btnConfig.addEventListener('click', () => {
-        modal.style.display = 'flex';
-        inputKey.focus();
-    });
-
-    // Fechar modal
-    btnClose.addEventListener('click', () => modal.style.display = 'none');
-
-    // Verificar chave ao carregar
+    // 1. VERIFICAÇÃO INTELIGENTE AO CARREGAR
     document.addEventListener('DOMContentLoaded', async () => {
         try {
             const response = await fetch('/test');
             const data = await response.json();
+            
+            // SE NÃO TIVER CHAVE: Abre a janela e obriga a digitar
             if (!data.gemini_key_configured) {
                 modal.style.display = 'flex';
+                btnClose.style.display = 'none'; // Esconde o botão fechar (obrigatório)
+                inputKey.focus();
+            } 
+            // SE JÁ TIVER CHAVE: Não faz nada (fica fechado), mas libera o botão de fechar caso o usuário abra manualmente
+            else {
+                btnClose.style.display = 'inline-block';
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e); 
+        }
     });
+
+    // Botão de engrenagem (Abre manualmente quando você quiser trocar)
+    btnConfig.addEventListener('click', () => {
+        modal.style.display = 'flex';
+        inputKey.value = ''; // Limpa para segurança
+        inputKey.focus();
+        btnClose.style.display = 'inline-block'; // Permite fechar pois já existe uma chave ativa
+    });
+
+    // Fechar modal
+    btnClose.addEventListener('click', () => modal.style.display = 'none');
 
     // Salvar chave
     btnSave.addEventListener('click', async () => {
         const key = inputKey.value.trim();
         if (!key) return alert('Chave inválida.');
         
+        const originalText = btnSave.textContent;
         btnSave.textContent = 'Salvando...';
+        btnSave.disabled = true;
+
         try {
             const res = await fetch('/api/config/set-key', {
                 method: 'POST',
@@ -301,20 +316,23 @@
                 body: JSON.stringify({ apiKey: key })
             });
             const data = await res.json();
+            
             if (data.success) {
-                alert('Chave atualizada! O sistema está pronto.');
-                location.reload();
+                alert('Chave salva com sucesso!');
+                modal.style.display = 'none'; // Fecha o modal
+                location.reload(); // Recarrega para aplicar
             } else {
                 alert('Erro: ' + data.error);
             }
         } catch (e) {
             alert('Erro de conexão.');
         } finally {
-            btnSave.textContent = 'SALVAR CHAVE 🚀';
+            btnSave.textContent = originalText;
+            btnSave.disabled = false;
         }
     });
 
-    // --- LÓGICA DO SISTEMA (MANTIDA) ---
+    // --- LÓGICA DO SISTEMA (MANTIDA IGUAL) ---
     const fileInput = document.getElementById('invoice-file');
     const fileNameSpan = document.getElementById('file-name');
     const extractButton = document.getElementById('extract-button');
@@ -337,7 +355,6 @@
         hideLoading(); hideMessages();
         if (!result.data) return showError('Erro na estrutura de resposta.');
         
-        // Renderiza análise do BD
         let html = '<div class="db-analysis-grid">';
         const f = result.dbAnalysis.fornecedor || {};
         const fa = result.dbAnalysis.faturado || {};
@@ -346,7 +363,7 @@
 
         html += `<div class="info-item"><strong>FORNECEDOR</strong><br>${f.razaoSocial || 'N/A'}<br><small>${f.documento || 'N/A'}</small><br><span class="${f.status === 'EXISTE' ? 'status-existe' : 'status-criado'}">${f.status}</span></div>`;
         html += `<div class="info-item"><strong>FATURADO</strong><br>${fa.razaoSocial || 'N/A'}<br><small>${fa.documento || 'N/A'}</small><br><span class="${fa.status === 'EXISTE' ? 'status-existe' : 'status-criado'}">${fa.status}</span></div>`;
-        html += '</div>'; // end grid
+        html += '</div>'; 
 
         html += `<div class="info-item"><strong>Classificação:</strong> ${result.data.classificacao_despesa} <span class="${d.status==='EXISTE'?'status-existe':'status-criado'}">(${d.status})</span></div>`;
 

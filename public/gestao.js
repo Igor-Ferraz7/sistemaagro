@@ -1,12 +1,16 @@
 // Estado da Aplicação
 let currentTab = 'pessoas';
-let ultimaBuscaFoiTodos = true; // <--- NOVO: Guarda o estado da última busca
+let ultimaBuscaFoiTodos = true;
+let listaDadosAtuais = []; // ✅ Armazena os dados para ordenar sem ir no servidor
+let ordemAtual = { coluna: null, direcao: 1 }; // 1 = Crescente, -1 = Decrescente
 
 // Configuração das Colunas e Campos por Aba
 const CONFIG = {
     pessoas: {
         api: '/api/pessoas',
         headers: ['ID', 'Nome / Razão Social', 'Documento', 'Tipo', 'Status', 'Ações'],
+        // ✅ NOVO: Mapeia o índice da coluna para o campo do JSON
+        sortKeys: ['idPessoas', 'razaosocial', 'documento', 'tipo', 'status', null],
         renderRow: (item) => `
             <td>${item.idPessoas}</td>
             <td>${item.razaosocial || ''} <small style="color:gray">${item.fantasia ? '('+item.fantasia+')' : ''}</small></td>
@@ -28,6 +32,7 @@ const CONFIG = {
     classificacao: {
         api: '/api/classificacoes',
         headers: ['ID', 'Descrição', 'Tipo', 'Status', 'Ações'],
+        sortKeys: ['idClassificacao', 'descricao', 'tipo', 'status', null],
         renderRow: (item) => `
             <td>${item.idClassificacao}</td>
             <td>${item.descricao}</td>
@@ -46,6 +51,7 @@ const CONFIG = {
     contas: {
         api: '/api/contas',
         headers: ['ID', 'NF', 'Fornecedor', 'Vencimento', 'Valor', 'Status', 'Ações'],
+        sortKeys: ['idMovimentoContas', 'numeronotafiscal', 'fornecedorCliente.razaosocial', 'datemissao', 'valortotal', 'status', null],
         renderRow: (item) => {
             const valor = parseFloat(item.valortotal).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
             const dataVenc = new Date(item.parcelas[0]?.datavencimento || item.datemissao).toLocaleDateString('pt-BR');
@@ -70,7 +76,7 @@ const CONFIG = {
 // 1. Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     setupFilters();
-    carregarDados(true); // Carrega inicial
+    carregarDados(true);
 });
 
 function switchTab(tab) {
@@ -78,11 +84,25 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
     
+    // Reseta ordenação visual ao trocar de aba
+    ordemAtual = { coluna: null, direcao: 1 };
+    
+    // Renderiza Headers com onclick passando o ÍNDICE da coluna
     const headersRow = document.getElementById('tableHeaders');
-    headersRow.innerHTML = CONFIG[tab].headers.map(h => `<th>${h}</th>`).join('');
+    headersRow.innerHTML = CONFIG[tab].headers.map((h, index) => 
+        `<th onclick="ordenar(${index})" style="cursor:pointer" title="Clique para ordenar">${h} ${getSetaOrdenacao(index)}</th>`
+    ).join('');
     
     setupFilters();
-    carregarDados(true); // Reset ao trocar de aba
+    carregarDados(true);
+}
+
+function getSetaOrdenacao(index) {
+    const key = CONFIG[currentTab].sortKeys[index];
+    if (ordemAtual.coluna === key) {
+        return ordemAtual.direcao === 1 ? '🔼' : '🔽';
+    }
+    return '';
 }
 
 function setupFilters() {
@@ -96,10 +116,9 @@ function setupFilters() {
     }
 }
 
-// 2. Carregar Dados
+// 2. Carregar Dados (FETCH)
 async function carregarDados(todos = false) {
-    ultimaBuscaFoiTodos = todos; // <--- ATUALIZA O ESTADO
-
+    ultimaBuscaFoiTodos = todos;
     const termo = document.getElementById('searchInput').value;
     const tipo = document.getElementById('typeFilter').value;
     const config = CONFIG[currentTab];
@@ -116,17 +135,17 @@ async function carregarDados(todos = false) {
         const res = await fetch(url);
         const data = await res.json();
 
-        tbody.innerHTML = '';
         if(!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="100%" style="text-align:center; padding:20px;">Nenhum registro encontrado.</td></tr>';
+            listaDadosAtuais = [];
             return;
         }
 
-        data.forEach(item => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = config.renderRow(item);
-            tbody.appendChild(tr);
-        });
+        // ✅ Salva na memória global para permitir ordenação local
+        listaDadosAtuais = data;
+        
+        // Renderiza
+        renderizarTabela();
 
     } catch (error) {
         console.error(error);
@@ -134,7 +153,80 @@ async function carregarDados(todos = false) {
     }
 }
 
-// 3. Ações
+// ✅ NOVA FUNÇÃO: Renderiza a tabela baseada na lista em memória
+function renderizarTabela() {
+    const tbody = document.getElementById('tableBody');
+    const config = CONFIG[currentTab];
+    tbody.innerHTML = '';
+
+    listaDadosAtuais.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = config.renderRow(item);
+        tbody.appendChild(tr);
+    });
+}
+
+// ✅ NOVA FUNÇÃO: Lógica de Ordenação (Indexação por Coluna)
+function ordenar(colIndex) {
+    const config = CONFIG[currentTab];
+    const key = config.sortKeys[colIndex];
+
+    // Se a coluna não tiver chave de ordenação (ex: Ações), ignora
+    if (!key) return;
+
+    // Inverte direção se clicar na mesma coluna
+    if (ordemAtual.coluna === key) {
+        ordemAtual.direcao *= -1;
+    } else {
+        ordemAtual.coluna = key;
+        ordemAtual.direcao = 1; // Padrão: Crescente
+    }
+
+    // Atualiza as setinhas no header
+    const headersRow = document.getElementById('tableHeaders');
+    headersRow.innerHTML = config.headers.map((h, index) => 
+        `<th onclick="ordenar(${index})" style="cursor:pointer">${h} ${getSetaOrdenacao(index)}</th>`
+    ).join('');
+
+    // Ordena o array em memória
+    listaDadosAtuais.sort((a, b) => {
+        let valA = getValorProfundo(a, key);
+        let valB = getValorProfundo(b, key);
+
+        // Tratamento para nulos
+        if (valA == null) valA = "";
+        if (valB == null) valB = "";
+
+        // Tratamento para números (ID, Valor)
+        if (!isNaN(valA) && !isNaN(valB) && valA !== "" && valB !== "") {
+            return (valA - valB) * ordemAtual.direcao;
+        }
+
+        // Tratamento para strings
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+
+        if (valA < valB) return -1 * ordemAtual.direcao;
+        if (valA > valB) return 1 * ordemAtual.direcao;
+        return 0;
+    });
+
+    renderizarTabela();
+}
+
+// Auxiliar para pegar valores aninhados (ex: fornecedorCliente.razaosocial)
+function getValorProfundo(obj, path) {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+}
+
+// 3. Ações e Forms (Mantidos quase iguais)
+function novoRegistro() {
+    document.getElementById('editId').value = '';
+    document.getElementById('dynamicForm').reset();
+    renderEmptyForm();
+    document.getElementById('modalForm').classList.add('show');
+}
+
 function editar(item) {
     const config = CONFIG[currentTab];
     const container = document.getElementById('formFields');
@@ -152,40 +244,30 @@ function editar(item) {
             const options = field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('');
             inputHtml = `<select name="${field.name}">${options}</select>`;
         } else {
-            inputHtml = `<input type="${field.type}" name="${field.name}" value="${value}">`;
+            inputHtml = `<input type="${field.type}" name="${field.name}" value="${value}" required>`;
         }
         container.innerHTML += `<div class="form-group"><label>${field.label}</label>${inputHtml}</div>`;
     });
 
-    abrirModal();
+    document.getElementById('modalForm').classList.add('show');
 }
 
 async function excluir(id) {
     if(!confirm('Deseja realmente inativar este registro?')) return;
-    
     const config = CONFIG[currentTab];
     try {
         const res = await fetch(`${config.api}/${id}`, { method: 'DELETE' });
-        if(res.ok) {
-            // ✅ CORREÇÃO: Usa o estado salvo em vez de forçar true
-            carregarDados(ultimaBuscaFoiTodos); 
-        } else {
-            alert('Erro ao excluir.');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Erro de conexão.');
-    }
+        if(res.ok) carregarDados(ultimaBuscaFoiTodos); 
+        else alert('Erro ao excluir.');
+    } catch (e) { console.error(e); alert('Erro de conexão.'); }
 }
 
-// 4. Formulário
 document.getElementById('dynamicForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const config = CONFIG[currentTab];
     const id = document.getElementById('editId').value;
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
-    
     const method = id ? 'PUT' : 'POST';
     const url = id ? `${config.api}/${id}` : config.api;
 
@@ -195,36 +277,24 @@ document.getElementById('dynamicForm').addEventListener('submit', async (e) => {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(data)
         });
-        
         if(res.ok) {
             alert('Salvo com sucesso!');
             fecharModal();
-            // ✅ CORREÇÃO: Recarrega mantendo o contexto
             carregarDados(ultimaBuscaFoiTodos);
-        } else {
-            alert('Erro ao salvar.');
-        }
-    } catch (error) {
-        console.error(error);
-        alert('Erro de conexão.');
-    }
+        } else { alert('Erro ao salvar.'); }
+    } catch (error) { console.error(error); alert('Erro de conexão.'); }
 });
-
-// Auxiliares
-function abrirModal() {
-    document.getElementById('modalForm').classList.add('show');
-    if(!document.getElementById('editId').value) {
-         document.getElementById('dynamicForm').reset();
-         renderEmptyForm();
-    }
-}
 
 function renderEmptyForm() {
     const config = CONFIG[currentTab];
     const container = document.getElementById('formFields');
     container.innerHTML = '';
-    document.getElementById('editId').value = '';
-    document.getElementById('modalTitle').textContent = 'Novo Registro';
+    document.getElementById('modalTitle').textContent = `Novo(a) ${currentTab.charAt(0).toUpperCase() + currentTab.slice(1)}`;
+
+    if (!config.formFields || config.formFields.length === 0) {
+        container.innerHTML = '<p style="color:red; text-align:center;">Criação apenas via Upload de PDF.</p>';
+        return;
+    }
 
     config.formFields.forEach(field => {
          let inputHtml = '';
@@ -232,12 +302,10 @@ function renderEmptyForm() {
              const options = field.options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
              inputHtml = `<select name="${field.name}">${options}</select>`;
          } else {
-             inputHtml = `<input type="${field.type}" name="${field.name}">`;
+             inputHtml = `<input type="${field.type}" name="${field.name}" required>`;
          }
          container.innerHTML += `<div class="form-group"><label>${field.label}</label>${inputHtml}</div>`;
     });
 }
 
-function fecharModal() {
-    document.getElementById('modalForm').classList.remove('show');
-}
+function fecharModal() { document.getElementById('modalForm').classList.remove('show'); }
