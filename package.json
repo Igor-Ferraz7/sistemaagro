@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "npm install && npx prisma generate",
     "dev": "nodemon server.js",
     "test": "node -e \"console.log('Sistema funcionando!')\"",
     "setup-db": "node prisma/setup-db.js",
