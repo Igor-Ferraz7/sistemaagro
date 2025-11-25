@@ -40,7 +40,7 @@ const { consultarRAG } = require('./agents/agent_rag');
 const { ingestaoInicial } = require('./process_data/ingest_embeddings');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Middleware para servir arquivos estáticos e processar JSON
 app.use(express.static('public'));
