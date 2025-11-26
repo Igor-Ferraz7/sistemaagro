@@ -308,11 +308,13 @@ const { setupDatabase } = require('./prisma/setup-db');
 // Inicialização segura com conexão ao BD
 async function main() {
     // 1. Configurar o banco de dados antes de conectar
+    /*
     const dbSetupSuccess = await setupDatabase();
     if (!dbSetupSuccess) {
         console.error('❌ Falha na configuração do banco de dados. Encerrando aplicação.');
         process.exit(1);
     }
+    */
 
     // 2. Conectar ao BD
     await connectDb();
@@ -321,7 +323,7 @@ async function main() {
     await ingestaoInicial();
 
     // 4. Iniciar o Servidor
-    app.listen(port, () => {
+    app.listen(port, '0.0.0.0', () => {
         console.log('='.repeat(60));
         console.log('🚀 SISTEMA DE EXTRAÇÃO DE DADOS DE NOTAS FISCAIS');
         console.log('='.repeat(60));
