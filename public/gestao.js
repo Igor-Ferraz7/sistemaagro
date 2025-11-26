@@ -163,9 +163,28 @@ async function carregarDados(todos = false) {
         if(tipo) url += `&tipo=${tipo}`;
 
         const res = await fetch(url);
-        const data = await res.json();
+        
+        // Tenta ler a resposta
+        let data;
+        const textoResposta = await res.text(); // Lê como texto primeiro para debug
 
-        if(!data || data.length === 0) {
+        try {
+            data = JSON.parse(textoResposta);
+        } catch (e) {
+            console.error("Erro ao fazer parse do JSON:", textoResposta);
+            throw new Error(`O servidor retornou um erro não-JSON (Provavelmente 500 ou 404). Veja o console.`);
+        }
+
+        // Verifica se a resposta da API contém erro explícito
+        if (!res.ok || data.error) {
+            throw new Error(data.error || `Erro do Servidor: ${res.status} ${res.statusText}`);
+        }
+
+        if(!Array.isArray(data)) {
+            throw new Error("Formato de dados inválido recebido do servidor.");
+        }
+
+        if(data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="100%" style="text-align:center; padding:20px;">Nenhum registro encontrado.</td></tr>';
             listaDadosAtuais = [];
             return;
@@ -175,8 +194,9 @@ async function carregarDados(todos = false) {
         renderizarTabela();
 
     } catch (error) {
-        console.error(error);
-        tbody.innerHTML = '<tr><td colspan="100%" style="color:red; text-align:center;">Erro ao carregar dados.</td></tr>';
+        console.error("Erro detalhado:", error);
+        // AGORA VAI MOSTRAR O ERRO REAL NA TELA
+        tbody.innerHTML = `<tr><td colspan="100%" style="color:red; text-align:center; padding:20px;">Erro: ${error.message}</td></tr>`;
     }
 }
 
